@@ -2,7 +2,15 @@
 
 Skills e subagentes que transformam o agente de código que você já usa (Claude Code, Cursor, Codex, GitHub Copilot) em um mantenedor disciplinado de um **LLM Wiki** no padrão de Andrej Karpathy, com governança corporativa.
 
-> Status: **POC / rascunho**. Nome do pacote: `llm-wiki-kit` (versão `0.4.0`). Proposta e especificação de implementação em [`docs/solution-draft.md`](docs/solution-draft.md).
+> Status: **POC / rascunho**. Nome do pacote: `llm-wiki-kit` (versão `0.5.0`). Documentação:
+
+| Documento | Para quê |
+|---|---|
+| [`docs/anatomia-do-repositorio.md`](docs/anatomia-do-repositorio.md) | Como fica um repositório com wiki: camadas, os dois catálogos, frontmatter, log, governança |
+| [`docs/uso-em-uma-semana.md`](docs/uso-em-uma-semana.md) | Uma semana de uso, do repositório vazio até o conhecimento chegar ao serviço |
+| [`examples/team-wiki/`](examples/team-wiki) | O wiki de exemplo completo e válido que os dois documentos descrevem |
+| [`docs/convencao-de-branches.md`](docs/convencao-de-branches.md) | `release`, `hotfix`, `feature`, `bugfix` e como fechar uma versão |
+| [`docs/solution-draft.md`](docs/solution-draft.md) | Proposta e especificação de implementação |
 
 ## O que é o padrão LLM Wiki
 
@@ -78,6 +86,8 @@ llm-wiki-kit/
 │   │       ├── scripts/wiki_tools.py  # -> .llm-wiki/scripts/wiki_tools.py
 │   │       └── wiki/             #   -> wiki/index.md, wiki/log.md, wiki/overview.md
 │   └── wiki-query/SKILL.md       # Leitor: somente leitura, ~450 palavras
+├── examples/
+│   └── team-wiki/                # Wiki de exemplo, completo e válido (check, manifest e publish passam)
 ├── tests/
 │   └── test_wiki_tools.py        # Testes do helper (stdlib): python -m unittest discover -s tests -v
 ├── docs/

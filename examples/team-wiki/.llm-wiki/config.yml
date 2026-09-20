@@ -1,0 +1,65 @@
+# .llm-wiki/config.yml - configuracao local deste wiki.
+# Lido pelas skills wiki e wiki-query antes de qualquer operacao. Chaves em ingles; valores livres.
+
+schema_version: 1
+language: pt-BR            # idioma do conteudo das paginas
+link_style: markdown       # markdown | wikilink (Obsidian)
+approval_mode: plan         # none | plan | all  (ver secao Governanca em AGENTS.md)
+auto_archive: false        # arquivar automaticamente comparacoes/sinteses geradas em query
+default_sensitivity: internal   # public | internal | confidential | restricted
+
+paths:
+  raw: raw
+  wiki: wiki
+  assets: raw/assets
+
+# Vocabulario de paginas, lido por .llm-wiki/scripts/wiki_tools.py (check e index).
+# Para criar um tipo de pagina, declare-o aqui (e crie o template em .llm-wiki/templates/);
+# nao edite o script. Mudar este bloco e uma operacao `schema` (ver AGENTS.md).
+categories:                # subdiretorio de wiki/ -> tipo de pagina (`type`), na ordem do index.md
+  sources: source
+  entities: entity
+  concepts: concept
+  syntheses: synthesis
+  comparisons: comparison
+  questions: question
+  outputs: output
+
+statuses: [draft, reviewed, stale, disputed]   # valores validos de `status`
+
+# Opcionais (descomente para usar):
+# category_labels:         # subdiretorio -> titulo da secao no index.md (padrao: nome capitalizado)
+#   decisions: Decisoes
+# extra_types: [note]      # tipos validos sem diretorio proprio
+# required_by_type:        # tipo -> chaves obrigatorias e nao vazias (sempre lista inline)
+#   source: [sources]
+# enums:                   # chave -> valores permitidos; chave pontuada alcanca um nivel (source_meta.kind)
+#   confidence: [high, medium, low]
+
+search:
+  engine: index            # index | rg | qmd
+  qmd_collection: ""       # nome da colecao qmd, se engine: qmd
+
+export:
+  marp: true               # permitir geracao de decks Marp em wiki/outputs/
+  redact_sensitivity_above: internal   # nao exportar paginas acima deste nivel sem aprovacao
+
+capture:                   # operacao `capture`: licoes de uma sessao de trabalho viram nota imutavel em raw/
+  raw_category: notes      # notas vao para raw/<raw_category>/
+  author: ""               # humano responsavel pelas sessoes (vazio = perguntar)
+
+research:                  # operacao `research` da skill wiki: busca fontes na web, com lista aprovada por humano
+  angles: [technical, applied, academic, recent, contrarian]   # contrarian nao e opcional
+  max_sources: 8           # teto de fontes capturadas por rodada
+  max_rounds: 2            # rodadas por pergunta (a segunda so cobre a lacuna da primeira)
+  raw_category: research   # fontes capturadas vao para raw/<raw_category>/
+  allow_domains: []        # vazio = qualquer dominio
+  block_domains: []
+
+publish:                   # `wiki_tools.py publish`: o wiki vira uma skill somente leitura para outros repositorios
+  name: team-data-wiki
+  title: O que o time sabe sobre armazenamento de dados
+  description: O que este time ja apurou sobre escolha e operacao de banco de dados - SQLite em producao, concorrencia de escrita, WAL, contencao e SQLITE_BUSY, quando trocar por um banco cliente/servidor, e as licoes das nossas proprias sessoes de trabalho. Use antes de escolher, configurar ou revisar a camada de persistencia de um servico, mesmo que ninguem cite o wiki.
+  out: dist                # diretorio de saida (derivado; mantenha no .gitignore)
+  include_raw: true        # false = nao distribuir as fontes, so as paginas
+  max_sensitivity: internal   # recusa publicar se houver pagina acima deste nivel
