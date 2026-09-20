@@ -17,6 +17,8 @@ dist/<name>/
 
 Os links relativos das páginas (`../../raw/...`) continuam válidos porque `wiki/` e `raw/` permanecem irmãos dentro de `references/`.
 
+Os nomes vêm do `paths:` do wiki, não são fixos. Um repositório de documentação que adota o wiki e mantém a sua pasta `docs/` (`paths.raw: docs`) publica em `references/docs/`, e a skill gerada cita esse nome. Uma SKILL.md escrita à mão que fale de um diretório diferente do publicado faz o `publish` recusar, em vez de entregar um caminho que não existe.
+
 ## Pré-condições
 
 1. `python .llm-wiki/scripts/wiki_tools.py check` sem erros. O `publish` recusa-se a montar com erro, porque um link quebrado no wiki vira um beco sem saída para o agente consumidor.

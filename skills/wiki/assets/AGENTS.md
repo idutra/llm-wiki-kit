@@ -54,6 +54,7 @@ related:            # outras páginas do wiki
 tags: []
 sensitivity: internal   # public | internal | confidential | restricted
 confidence: medium      # high | medium | low (opcional)
+volatility: medium      # high | medium | low | static (opcional): com que rapidez esta página envelhece
 ---
 ```
 
@@ -128,7 +129,7 @@ Operações válidas: `init`, `ingest`, `query`, `archive`, `lint`, `index`, `ex
 
 ### Lint (skill `wiki`, operação `lint`)
 
-1. Mecânico: `python .llm-wiki/scripts/wiki_tools.py check` (frontmatter, links quebrados, órfãos, índice).
+1. Mecânico: `python .llm-wiki/scripts/wiki_tools.py check` (frontmatter, links quebrados, órfãos, índice, manifesto, frescor). Cada verificação tem severidade `error`, `warning` ou `info`, ajustável por wiki em `lint.severity`; `--fail-on` decide o que quebra CI.
 2. Julgamento: contradições, claims obsoletos, conceitos citados sem página, cross-references faltantes, lacunas que uma nova fonte poderia preencher.
 3. Corrija apenas o que for seguro (links, índice, frontmatter). Reporte o resto como lista de ações propostas. Registre `lint` no log.
 

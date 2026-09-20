@@ -3,6 +3,23 @@
 Formato: uma seção por versão fechada, da mais recente para a mais antiga. Versões seguem o semver do
 pacote; o fechamento de cada uma está descrito em [`docs/convencao-de-branches.md`](docs/convencao-de-branches.md).
 
+## 0.6.0 - 2026-09-20
+
+- `lint`: cada verificação tem severidade `error`, `warning` ou `info`, ajustável por wiki em
+  `lint.severity` (`off` silencia). `check --fail-on LEVEL` decide o que quebra CI; sem ele vale
+  `lint.fail_on`, e o padrão continua sendo `error`.
+- Verificação `freshness`: página mais velha que o prazo da sua `volatility` (`high`, `medium`, `low`,
+  `static`, prazos em `lint.freshness`). Nasce como `info`: é fila de revisão, não defeito.
+- `publish` passa a preservar os nomes de diretório de `paths`. Um repositório de documentação que adota
+  o wiki e mantém a sua pasta `docs/` publica em `references/docs/`, e a skill gerada cita esse nome.
+  Antes, os links relativos das páginas quebravam e a montagem falhava.
+- `references/init.md` ganha "Adotar um repositório que já tem documentação".
+- `parse_yaml` aceita mapas aninhados de qualquer profundidade; antes o terceiro nível
+  (`lint.freshness.high`) era achatado em silêncio.
+
+**Mudanças de comportamento**: `sources:` apontando para fora de `raw/` e página duplicada no índice
+passam de aviso a erro. `lint.severity` reverte qualquer uma das duas.
+
 ## 0.5.0 - 2026-09-20
 
 - `docs/anatomia-do-repositorio.md`: como fica um repositório com LLM Wiki, camada por camada.

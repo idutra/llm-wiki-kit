@@ -7,7 +7,7 @@ wiki/manifest.md (with --write), appends to wiki/log.md (log-append) and
 builds the derived read-only skill under dist/ (publish).
 
 Usage:
-  python .llm-wiki/scripts/wiki_tools.py check [--root DIR] [--json]
+  python .llm-wiki/scripts/wiki_tools.py check [--root DIR] [--json] [--fail-on LEVEL]
   python .llm-wiki/scripts/wiki_tools.py index [--root DIR] [--write]
   python .llm-wiki/scripts/wiki_tools.py manifest [--root DIR] [--write]
   python .llm-wiki/scripts/wiki_tools.py publish [--root DIR] [--out DIR] [--install REPO]...
@@ -26,11 +26,12 @@ schema without editing this file. Built-in defaults apply to any missing key:
   statuses:         valid values of the `status` key
   required_by_type: page type -> [keys that must be non-empty] (inline lists)
   enums:            key -> [allowed values]; a dotted key reaches one nested level
+  lint:             severity per check, fail_on, default_volatility, freshness by band
   publish:          name, title, description, out, include_raw, max_sensitivity
   capture:          read by the wiki skill only (raw_category, author)
   research:         read by the wiki skill only (angles, max_sources, max_rounds, domains)
 
-Exit codes: 0 ok, 1 errors found (check) or bad usage, 2 wiki not found.
+Exit codes: 0 ok, 1 findings at or above --fail-on (check) or bad usage, 2 wiki not found.
 """
 
 from __future__ import annotations
@@ -46,7 +47,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-KIT_VERSION = "0.5.0"  # version of llm-wiki-kit this copy came from; see `--version`
+KIT_VERSION = "0.6.0"  # version of llm-wiki-kit this copy came from; see `--version`
 CONFIG_REL = ".llm-wiki/config.yml"
 # Built-in page vocabulary; .llm-wiki/config.yml overrides it (see Schema).
 # (wiki/ subdirectory, page type, heading label used in index.md)
@@ -60,6 +61,16 @@ DEFAULT_CATEGORIES = [
     ("outputs", "output", "Outputs"),
 ]
 DEFAULT_STATUSES = ("draft", "reviewed", "stale", "disputed")
+LEVELS = ("info", "warning", "error")  # increasing severity; 'off' silences a kind entirely
+# What each finding costs by default. A wiki raises or lowers any of them under `lint.severity`.
+DEFAULT_SEVERITY = {
+    "config": "warning", "frontmatter": "error", "raw-ref": "error", "broken-link": "error",
+    "broken-wikilink": "error", "index": "error", "log": "error", "placement": "warning",
+    "orphan": "warning", "unreferenced-raw": "warning", "manifest": "warning",
+    "source-changed": "warning", "freshness": "info",
+}
+# How long a page stays fresh, by its `volatility`. 0 means it never goes stale.
+DEFAULT_FRESHNESS = {"high": 30, "medium": 180, "low": 365, "static": 0}
 DEFAULT_REQUIRED_BY_TYPE = {"source": ["sources"]}
 SENSITIVITY = {"public", "internal", "confidential", "restricted"}
 LOG_OPS = {"init", "ingest", "query", "archive", "lint", "index", "export", "publish", "research", "capture", "schema"}
@@ -97,40 +108,54 @@ def _strip_quotes(s: str) -> str:
 
 
 def parse_yaml(lines) -> dict:
-    """Parse the supported YAML subset from a sequence of lines."""
-    data: dict = {}
-    current_key = None
+    """Parse the supported YAML subset: nested mappings, block lists and inline lists.
+
+    Nesting follows indentation, so a mapping can be as deep as the config needs
+    (`lint.freshness.high`). Lists hold scalars only. Malformed input is skipped rather
+    than raised: a config typo is reported by `check`, never as a traceback.
+    """
+    root: dict = {}
+    stack: list[tuple[int, dict]] = [(0, root)]  # (indent of this mapping's keys, mapping)
+    pending: tuple[str, dict] | None = None      # key whose nested value has not started yet
+
     for line in lines:
         stripped = line.split(" #", 1)[0].rstrip() if not line.strip().startswith("#") else ""
         if not stripped.strip():
             continue
         indent = len(stripped) - len(stripped.lstrip(" "))
         content = stripped.strip()
-        if indent == 0:
-            if ":" not in content:
-                continue
-            key, _, value = content.partition(":")
-            key = key.strip()
-            value = value.strip()
-            if value == "":
-                data[key] = None  # block list or nested map follows
-                current_key = key
-            else:
-                data[key] = _parse_scalar(value)
-                current_key = key
+
+        if content.startswith("- "):  # block list item; `pending` stays, more items may follow
+            if pending is not None:
+                key, owner = pending
+                if not isinstance(owner.get(key), list):
+                    owner[key] = []
+                owner[key].append(_strip_quotes(content[2:]))
+            continue
+
+        if ":" not in content:
+            continue
+
+        while len(stack) > 1 and indent < stack[-1][0]:
+            stack.pop()
+        if pending is not None and indent > stack[-1][0]:  # deeper than the current mapping: open it
+            key, owner = pending
+            if not isinstance(owner.get(key), dict):
+                owner[key] = {}
+            stack.append((indent, owner[key]))
+        elif indent > stack[-1][0]:
+            continue  # indented under a key that already holds a scalar; not ours to keep
+        pending = None
+
+        current = stack[-1][1]
+        key, _, value = content.partition(":")
+        key, value = key.strip(), value.strip()
+        if value == "":
+            current[key] = None  # a nested mapping or a block list may follow
+            pending = (key, current)
         else:
-            if current_key is None:
-                continue
-            if content.startswith("- "):
-                if not isinstance(data.get(current_key), list):
-                    data[current_key] = []
-                data[current_key].append(_strip_quotes(content[2:]))
-            elif ":" in content:
-                if not isinstance(data.get(current_key), dict):
-                    data[current_key] = {}
-                k, _, v = content.partition(":")
-                data[current_key][k.strip()] = _parse_scalar(v) if v.strip() else None
-    return data
+            current[key] = _parse_scalar(value)
+    return root
 
 
 def parse_frontmatter(text: str):
@@ -217,6 +242,43 @@ class Schema:
                 self.problems.append(f"'required_by_type.{t}': '{t}' is not a declared page type")
         self.required_by_type = {**DEFAULT_REQUIRED_BY_TYPE, **configured_required}
         self.enums = self._map_of_lists(cfg, "enums")
+
+        lint = cfg.get("lint")
+        lint = lint if isinstance(lint, dict) else {}
+        self.severity = dict(DEFAULT_SEVERITY)
+        configured = lint.get("severity")
+        if isinstance(configured, dict):
+            for kind, level in configured.items():
+                kind, level = str(kind), str(level).lower()
+                if kind not in DEFAULT_SEVERITY:
+                    self.problems.append(f"'lint.severity.{kind}': unknown check; valid: {', '.join(sorted(DEFAULT_SEVERITY))}")
+                elif level not in LEVELS and level != "off":
+                    self.problems.append(f"'lint.severity.{kind}': must be one of {', '.join(LEVELS)}, off")
+                else:
+                    self.severity[kind] = level
+        elif configured is not None:
+            self.problems.append("'lint.severity' must be a mapping 'check: level'; using the defaults")
+
+        self.fail_on = str(lint.get("fail_on") or "error").lower()
+        if self.fail_on not in LEVELS and self.fail_on != "never":
+            self.problems.append(f"'lint.fail_on': must be one of {', '.join(LEVELS)}, never; using 'error'")
+            self.fail_on = "error"
+
+        self.default_volatility = str(lint.get("default_volatility") or "medium").lower()
+        self.freshness = dict(DEFAULT_FRESHNESS)
+        configured = lint.get("freshness")
+        if isinstance(configured, dict):
+            for band, days in configured.items():
+                band = str(band).lower()
+                try:
+                    self.freshness[band] = max(0, int(days))
+                except (TypeError, ValueError):
+                    self.problems.append(f"'lint.freshness.{band}': must be a number of days")
+        elif configured is not None:
+            self.problems.append("'lint.freshness' must be a mapping 'volatility: days'; using the defaults")
+        if self.default_volatility not in self.freshness:
+            self.problems.append(f"'lint.default_volatility': unknown band '{self.default_volatility}'; using 'medium'")
+            self.default_volatility = "medium"
 
     def _list(self, cfg: dict, key: str) -> list[str]:
         if cfg.get(key) in (None, ""):
@@ -336,16 +398,18 @@ def resolve_link(from_file: Path, target: str, root: Path) -> Path | None:
 # ----------------------------------------------------------------------------
 
 def run_check(wiki: Wiki) -> dict:
-    errors: list[dict] = []
-    warnings: list[dict] = []
-
-    def err(kind, path, msg):
-        errors.append({"level": "error", "kind": kind, "path": path, "message": msg})
-
-    def warn(kind, path, msg):
-        warnings.append({"level": "warning", "kind": kind, "path": path, "message": msg})
-
     schema = wiki.schema
+    findings: list[dict] = []
+    fresh_candidates: list[tuple] = []
+
+    def add(kind, path, msg):
+        """Record a finding at the severity this wiki assigns to that kind."""
+        level = schema.severity.get(kind, "error")
+        if level != "off":
+            findings.append({"level": level, "kind": kind, "path": path, "message": msg})
+
+    err = warn = add  # the kind decides the severity now, not the call site
+
     index_rel = wiki.rel(wiki.index_path)
     log_rel = wiki.rel(wiki.log_path)
     for problem in schema.problems:
@@ -368,6 +432,7 @@ def run_check(wiki: Wiki) -> dict:
         if fm is None:
             err("frontmatter", rel, "missing YAML frontmatter")
         elif not is_marp:
+            fresh_candidates.append((p, fm))
             for k in REQUIRED_KEYS:
                 if k not in fm or fm[k] in (None, ""):
                     err("frontmatter", rel, f"missing required key '{k}'")
@@ -488,22 +553,47 @@ def run_check(wiki: Wiki) -> dict:
         for gone in sorted((recorded or {}).keys() - seen):
             warn("manifest", wiki.rel(wiki.manifest_path), f"manifest lists a source that no longer exists: {gone}")
 
-    return {"errors": errors, "warnings": warnings,
-            "summary": {"pages": len(pages), "errors": len(errors), "warnings": len(warnings)}}
+    today = dt.date.today()
+    for p, fm in fresh_candidates:
+        band = str(_dotted(fm, "volatility") or schema.default_volatility).lower()
+        if band not in schema.freshness:
+            warn("frontmatter", wiki.rel(p), f"unknown volatility '{band}' (valid: {', '.join(sorted(schema.freshness))})")
+            continue
+        days = schema.freshness[band]
+        updated = fm.get("updated")
+        if not days or not isinstance(updated, str) or not DATE_RE.match(updated):
+            continue
+        age = (today - dt.date.fromisoformat(updated)).days
+        if age > days:
+            add("freshness", wiki.rel(p),
+                f"not updated for {age} days; volatility '{band}' expects a review every {days}")
+
+    errors = [f for f in findings if f["level"] == "error"]
+    warnings = [f for f in findings if f["level"] == "warning"]
+    infos = [f for f in findings if f["level"] == "info"]
+    return {"errors": errors, "warnings": warnings, "infos": infos, "findings": findings,
+            "summary": {"pages": len(pages), "errors": len(errors),
+                        "warnings": len(warnings), "infos": len(infos)}}
 
 
-def cmd_check(wiki: Wiki, as_json: bool) -> int:
+def cmd_check(wiki: Wiki, as_json: bool, fail_on: str | None) -> int:
     result = run_check(wiki)
-    errors, warnings = result["errors"], result["warnings"]
+    fail_on = (fail_on or wiki.schema.fail_on).lower()
+    if fail_on not in LEVELS and fail_on != "never":
+        print(f"--fail-on must be one of {', '.join(LEVELS)}, never", file=sys.stderr)
+        return 1
+    summary = result["summary"]
     if as_json:
-        print(json.dumps(result, indent=2, ensure_ascii=False))
+        print(json.dumps({**result, "fail_on": fail_on}, indent=2, ensure_ascii=False))
     else:
-        for e in errors:
-            print(f"ERROR   [{e['kind']}] {e['path']}: {e['message']}")
-        for w in warnings:
-            print(f"WARNING [{w['kind']}] {w['path']}: {w['message']}")
-        print(f"\n{result['summary']['pages']} pages, {len(errors)} errors, {len(warnings)} warnings")
-    return 1 if errors else 0
+        for f in sorted(result["findings"], key=lambda f: (-LEVELS.index(f["level"]), f["kind"], f["path"])):
+            print(f"{f['level'].upper():7} [{f['kind']}] {f['path']}: {f['message']}")
+        print(f"\n{summary['pages']} pages, {summary['errors']} errors, "
+              f"{summary['warnings']} warnings, {summary['infos']} infos (failing on: {fail_on})")
+    if fail_on == "never":
+        return 0
+    threshold = LEVELS.index(fail_on)
+    return 1 if any(LEVELS.index(f["level"]) >= threshold for f in result["findings"]) else 0
 
 
 # ----------------------------------------------------------------------------
@@ -813,7 +903,7 @@ def _consumer_skill_text(wiki: Wiki, cfg: dict):
         return None, ("publish.description is empty in .llm-wiki/config.yml; it is what makes an agent "
                       "load the skill, so it has to name the subjects this wiki covers")
     text = read_text(template)
-    for key in ("name", "title", "description", "repository"):
+    for key in ("name", "title", "description", "repository", "wiki_dir", "raw_dir"):
         text = text.replace("{{" + key + "}}", str(cfg.get(key) or "").strip())
     return text, PUBLISH_TEMPLATE_REL
 
@@ -833,7 +923,7 @@ def cmd_publish(wiki: Wiki, out, install) -> int:
         return 1
 
     check = run_check(wiki)
-    if check["errors"]:
+    if check["errors"]:  # publish always blocks on error level, whatever lint.fail_on says
         print(f"check reports {len(check['errors'])} error(s); fix them before publishing:", file=sys.stderr)
         for e in check["errors"]:
             print(f"  [{e['kind']}] {e['path']}: {e['message']}", file=sys.stderr)
@@ -857,6 +947,15 @@ def cmd_publish(wiki: Wiki, out, install) -> int:
             print(f"  {line}", file=sys.stderr)
         return 1
 
+    # The published layout keeps this wiki's own directory names, so every relative link
+    # inside the pages ("../../docs/adr-001.md") resolves the same inside the skill.
+    try:
+        wiki_rel, raw_rel = wiki.rel(wiki.wiki_dir), wiki.rel(wiki.raw_dir)
+    except ValueError:
+        print("publish needs paths.wiki and paths.raw to live inside the repository", file=sys.stderr)
+        return 1
+    cfg["wiki_dir"], cfg["raw_dir"] = wiki_rel, raw_rel
+
     skill_text, origin = _consumer_skill_text(wiki, cfg)
     if skill_text is None:
         print(origin, file=sys.stderr)
@@ -865,6 +964,11 @@ def cmd_publish(wiki: Wiki, out, install) -> int:
     if not fm or fm.get("name") != name:
         print(f"{origin}: frontmatter `name` must be `{name}` (publish.name)", file=sys.stderr)
         return 1
+    for wrong, right in (("references/wiki/", f"references/{wiki_rel}/"),
+                         ("references/raw/", f"references/{raw_rel}/")):
+        if wrong != right and wrong in skill_text:
+            print(f"{origin}: says '{wrong}' but this wiki publishes to '{right}'", file=sys.stderr)
+            return 1
 
     skill_dir = (wiki.root / (out or str(cfg.get("out") or "dist")) / name).resolve()
     if skill_dir == wiki.root.resolve() or wiki.wiki_dir.resolve().is_relative_to(skill_dir):
@@ -873,10 +977,10 @@ def cmd_publish(wiki: Wiki, out, install) -> int:
     if skill_dir.exists():
         shutil.rmtree(skill_dir)
     refs = skill_dir / "references"
-    shutil.copytree(wiki.wiki_dir, refs / "wiki", ignore=shutil.ignore_patterns(".gitkeep", "log.md"))
+    shutil.copytree(wiki.wiki_dir, refs / wiki_rel, ignore=shutil.ignore_patterns(".gitkeep", "log.md"))
     include_raw = str(cfg.get("include_raw", "true")).strip().lower() not in ("false", "no", "0")
     if include_raw and wiki.raw_dir.is_dir():
-        shutil.copytree(wiki.raw_dir, refs / "raw", ignore=shutil.ignore_patterns(".gitkeep"))
+        shutil.copytree(wiki.raw_dir, refs / raw_rel, ignore=shutil.ignore_patterns(".gitkeep"))
     for d in sorted((x for x in refs.rglob("*") if x.is_dir()), reverse=True):
         if not any(d.iterdir()):
             d.rmdir()  # empty categories do not ship
@@ -893,8 +997,8 @@ def cmd_publish(wiki: Wiki, out, install) -> int:
         parts = p.relative_to(wiki.wiki_dir).parts
         if len(parts) > 1:
             by_cat[parts[0]] = by_cat.get(parts[0], 0) + 1
-    raw_note = ("all sources ship under `raw/`, compiled or not; see `wiki/manifest.md`" if include_raw
-                else "sources are not shipped; the pages are the only evidence available")
+    raw_note = (f"all sources ship under `{raw_rel}/`, compiled or not; see `{wiki_rel}/manifest.md`"
+                if include_raw else "sources are not shipped; the pages are the only evidence available")
     (refs / "VERSION.md").write_text(
         "# Packaged wiki version\n\n"
         f"- Version: `{commit}` (commit of `{cfg['repository']}`)\n"
@@ -904,8 +1008,8 @@ def cmd_publish(wiki: Wiki, out, install) -> int:
         encoding="utf-8", newline="\n")
 
     broken = []
-    raw_out = (refs / "raw").resolve()
-    for page in sorted((refs / "wiki").rglob("*.md")):
+    raw_out = (refs / raw_rel).resolve()
+    for page in sorted((refs / wiki_rel).rglob("*.md")):
         for _, target in MD_LINK_RE.findall(read_text(page)):
             resolved = resolve_link(page, target, skill_dir)
             if resolved is None or (not include_raw and resolved.is_relative_to(raw_out)):
@@ -938,6 +1042,8 @@ def main(argv=None) -> int:
     ap.add_argument("--root", default=".", help="repository root (default: cwd)")
     sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("check"); s.add_argument("--json", action="store_true")
+    s.add_argument("--fail-on", default=None, choices=[*LEVELS, "never"],
+                   help="exit 1 from this severity up (default: lint.fail_on in config, else error)")
     s = sub.add_parser("index"); s.add_argument("--write", action="store_true")
     s = sub.add_parser("manifest"); s.add_argument("--write", action="store_true")
     s = sub.add_parser("publish"); s.add_argument("--out", default=None)
@@ -960,7 +1066,7 @@ def main(argv=None) -> int:
         print(f"no {wiki.rel(wiki.wiki_dir)}/ directory under {wiki.root}. Run the wiki skill (init) first.", file=sys.stderr)
         return 2
     if a.cmd == "check":
-        return cmd_check(wiki, a.json)
+        return cmd_check(wiki, a.json, a.fail_on)
     if a.cmd == "index":
         return cmd_index(wiki, a.write)
     if a.cmd == "manifest":

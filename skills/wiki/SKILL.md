@@ -4,7 +4,7 @@ description: Maintain an LLM Wiki (Karpathy pattern) - a git-versioned markdown 
 license: MIT
 metadata:
   author: idutra
-  version: "0.5.0"
+  version: "0.6.0"
   package: llm-wiki-kit
 ---
 
@@ -59,7 +59,7 @@ Sem `wiki/` ou sem `.llm-wiki/config.yml`: ofereça `init`; não crie a estrutur
 
 | Comando | Faz |
 |---|---|
-| `check [--json]` | Frontmatter, links, órfãos, índice, log, manifesto, fonte alterada |
+| `check [--json] [--fail-on LEVEL]` | Frontmatter, links, órfãos, índice, log, manifesto, fonte alterada, frescor; severidade por tipo |
 | `index [--write]` | Regera `wiki/index.md` preservando resumos |
 | `manifest [--write]` | Regera `wiki/manifest.md`: toda fonte, a página que a compilou e o hash |
 | `log-tail [-n N]` / `log-append --op <op> --title T ...` | Lê e registra o log no formato canônico |

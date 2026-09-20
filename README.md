@@ -2,7 +2,7 @@
 
 Skills e subagentes que transformam o agente de código que você já usa (Claude Code, Cursor, Codex, GitHub Copilot) em um mantenedor disciplinado de um **LLM Wiki** no padrão de Andrej Karpathy, com governança corporativa.
 
-> Status: **POC / rascunho**. Nome do pacote: `llm-wiki-kit` (versão `0.5.0`). Documentação:
+> Status: **POC / rascunho**. Nome do pacote: `llm-wiki-kit` (versão `0.6.0`). Documentação:
 
 | Documento | Para quê |
 |---|---|
@@ -115,7 +115,7 @@ Operações da skill `wiki` (`/wiki <operação>` no Claude Code e no Cursor, `$
 | `ingest` | Uma fonte por vez: captura imutável, leitura completa, triagem, página `sources/`, propagação, índice, manifesto e log. | `references/ingest.md` |
 | `capture` | Lições de uma sessão de trabalho (decisões, erros e correções, fatos verificados, correções ao wiki) viram nota imutável em `raw/notes/`, depois de revisão humana e do `scan` de segredos. | `references/capture.md` |
 | `archive` | Guarda no wiki uma resposta boa do `wiki-query`; registra perguntas abertas. | `references/archive.md` |
-| `lint` | Checagem mecânica (`check`) e de julgamento (contradições, obsolescência, lacunas). Corrige só o que é seguro. | `references/lint.md` |
+| `lint` | Checagem mecânica (`check`) e de julgamento (contradições, obsolescência, lacunas). Severidade por verificação, `--fail-on` para CI e frescor por `volatility`. | `references/lint.md` |
 | `index` | Reconstrói `index.md`, regenera `manifest.md` (todas as fontes, página e hash), lê e registra `log.md`. | `references/index.md` |
 | `search` | Três degraus: índice, `rg` com sinônimos, `qmd` (BM25 + vetores, local). | `references/search.md` |
 | `export` | Decks Marp, relatórios, tabelas e gráficos em `wiki/outputs/`, com proveniência. Não introduz fatos novos. | `references/export.md` |

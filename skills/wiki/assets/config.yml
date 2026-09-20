@@ -44,6 +44,18 @@ export:
   marp: true               # permitir geracao de decks Marp em wiki/outputs/
   redact_sensitivity_above: internal   # nao exportar paginas acima deste nivel sem aprovacao
 
+lint:                      # operacao `lint` e `wiki_tools.py check`
+  fail_on: error           # error | warning | info | never - a partir de qual nivel o check sai com codigo 1
+  # severity:              # reclassifique qualquer verificacao: error | warning | info | off
+  #   orphan: info         #   wiki novo, ainda sem malha de links
+  #   source-changed: error#   fontes sincronizadas de fora: mudanca silenciosa nao pode passar
+  default_volatility: medium         # usado quando a pagina nao declara `volatility`
+  freshness:               # dias ate a pagina ser considerada desatualizada; 0 = nunca
+    high: 30               # muda toda hora (precos, versoes, roadmap)
+    medium: 180
+    low: 365
+    static: 0              # decisao historica, ata, fato fechado
+
 capture:                   # operacao `capture`: licoes de uma sessao de trabalho viram nota imutavel em raw/
   raw_category: notes      # notas vao para raw/<raw_category>/
   author: ""               # humano responsavel pelas sessoes (vazio = perguntar)

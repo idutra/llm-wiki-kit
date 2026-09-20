@@ -12,23 +12,76 @@ Leia `AGENTS.md` e `.llm-wiki/config.yml`. Confirme o escopo: wiki inteiro (padr
 python .llm-wiki/scripts/wiki_tools.py check --json
 ```
 
-Regras e tratamento:
+### Severidade
 
-| Kind | Significado | Ação |
-|---|---|---|
-| `config` | `.llm-wiki/config.yml` malformado (categoria sem tipo, lista vazia, `required_by_type` de tipo não declarado); o checker segue com o padrão | Reporte; o vocabulário de páginas é decisão humana (operação `schema`). |
-| `frontmatter` | chave obrigatória ausente, enum inválido, data malformada | **Corrija** quando o valor correto for inequívoco (ex.: `type` deduzível do diretório; `created` do git log). Caso contrário reporte. |
-| `broken-link` / `broken-wikilink` | alvo não existe | Procure arquivo com o mesmo nome em `wiki/`. Um único candidato: **corrija** o caminho. Zero ou vários: reporte. |
-| `raw-ref` | `sources:` aponta para arquivo inexistente | Procure em `raw/` pelo mesmo nome. Um candidato: **corrija**. Senão reporte; nunca crie ou mova arquivos em `raw/`. |
-| `orphan` | página sem links de entrada | Não corrija automaticamente. Proponha 1 a 3 páginas que deveriam linkar para ela. |
-| `index` | página fora do índice, entrada para arquivo inexistente, duplicata | **Corrija**: adicione a linha faltante (resumo a partir do frontmatter/primeiro parágrafo); entrada para arquivo inexistente vira `[MISSING]` no texto (não apague; humano decide). |
-| `placement` | `type` não bate com o diretório | Reporte; mover arquivo quebra links e exige decisão. |
-| `log` | cabeçalho fora do formato | Reporte (log é append-only; não edite entradas antigas). |
-| `unreferenced-raw` | arquivo em `raw/` sem página | Liste como backlog de ingestão. Com manifesto, vem resumido em uma linha; o detalhe está em `wiki/manifest.md`. |
-| `source-changed` | a fonte mudou desde a última ingestão (hash difere do manifesto) | **Prioridade máxima.** Releia a fonte e revise a página que a compila; a página pode estar afirmando o que a fonte não diz mais. Só regenere o manifesto depois, senão a evidência da mudança se perde. |
-| `manifest` | fonte nova ou removida desde a última geração | `manifest --write`. Se a fonte sumiu, confira antes se foi remoção intencional no sync. |
+Cada verificação tem um nível: `error`, `warning` ou `info`. O nível não é fixo: cada wiki decide o que
+lhe custa caro, em `lint.severity` no `.llm-wiki/config.yml`.
+
+```yaml
+lint:
+  fail_on: error           # a partir de que nível o check sai com código 1
+  severity:
+    orphan: info           # wiki novo, ainda sem malha de links
+    source-changed: error  # fontes sincronizadas de fora: mudança silenciosa não pode passar
+    placement: off         # desligado de propósito
+```
+
+`off` silencia a verificação por completo. Reclassificar é decisão de time, não do agente: proponha e
+explique, não edite o config por conta própria.
+
+`--fail-on` na linha de comando vence a config, e é o que torna o `check` utilizável em CI:
+
+| Uso | Comando |
+|---|---|
+| CI que barra só defeito mecânico | `check --fail-on error` (padrão) |
+| CI rigoroso, que barra também órfã e fonte alterada | `check --fail-on warning` |
+| Relatório que nunca quebra o build | `check --fail-on never` |
+
+Sem `--fail-on`, vale o `lint.fail_on` da config; sem ele, `error`.
+
+### Regras e tratamento
+
+A coluna "Padrão" é o nível de fábrica, que a config pode mudar.
+
+| Kind | Padrão | Significado | Ação |
+|---|---|---|---|
+| `config` | warning | `.llm-wiki/config.yml` malformado (categoria sem tipo, lista vazia, `required_by_type` de tipo não declarado); o checker segue com o padrão | Reporte; o vocabulário de páginas é decisão humana (operação `schema`). |
+| `frontmatter` | error | chave obrigatória ausente, enum inválido, data ou `volatility` malformada | **Corrija** quando o valor correto for inequívoco (ex.: `type` deduzível do diretório; `created` do git log). Caso contrário reporte. |
+| `broken-link` / `broken-wikilink` | error | alvo não existe | Procure arquivo com o mesmo nome em `wiki/`. Um único candidato: **corrija** o caminho. Zero ou vários: reporte. |
+| `raw-ref` | error | `sources:` aponta para arquivo inexistente, ou para fora de `raw/` | Procure em `raw/` pelo mesmo nome. Um candidato: **corrija**. Senão reporte; nunca crie ou mova arquivos em `raw/`. |
+| `orphan` | warning | página sem links de entrada | Não corrija automaticamente. Proponha 1 a 3 páginas que deveriam linkar para ela. |
+| `index` | error | página fora do índice, entrada para arquivo inexistente, duplicata | **Corrija**: adicione a linha faltante (resumo a partir do frontmatter/primeiro parágrafo); entrada para arquivo inexistente vira `[MISSING]` no texto (não apague; humano decide). |
+| `placement` | warning | `type` não bate com o diretório | Reporte; mover arquivo quebra links e exige decisão. |
+| `log` | error | cabeçalho fora do formato | Reporte (log é append-only; não edite entradas antigas). |
+| `unreferenced-raw` | warning | arquivo em `raw/` sem página | Liste como backlog de ingestão. Com manifesto, vem resumido em uma linha; o detalhe está em `wiki/manifest.md`. |
+| `source-changed` | warning | a fonte mudou desde a última ingestão (hash difere do manifesto) | **Prioridade máxima.** Releia a fonte e revise a página que a compila; a página pode estar afirmando o que a fonte não diz mais. Só regenere o manifesto depois, senão a evidência da mudança se perde. |
+| `manifest` | warning | fonte nova ou removida desde a última geração | `manifest --write`. Se a fonte sumiu, confira antes se foi remoção intencional no sync. |
+
+| `freshness` | info | página mais velha que o prazo da sua `volatility` | Não é defeito: é fila de revisão. Releia a página, confirme se ainda vale e atualize `updated`; se mudou, é caso de `ingest` ou `research`. |
 
 Após correções, rode `check` de novo e confirme.
+
+### Frescor por volatilidade
+
+Uma página não envelhece pelo calendário, envelhece pelo assunto. Preço, versão e roadmap viram mentira em
+semanas; a ata de uma decisão não envelhece nunca. Cada página declara o seu ritmo no frontmatter:
+
+```yaml
+volatility: high | medium | low | static
+```
+
+Sem a chave, vale `lint.default_volatility` (padrão `medium`). Os prazos vêm de `lint.freshness`:
+
+| Banda | Padrão | Para quê |
+|---|---|---|
+| `high` | 30 dias | preços, versões, roadmap, pessoas em papéis |
+| `medium` | 180 dias | o padrão: conceito, entidade, síntese |
+| `low` | 365 dias | assunto estável |
+| `static` | nunca | decisão histórica, ata, fato fechado |
+
+O aviso conta a partir de `updated`, então revisar uma página e atualizar a data zera o relógio. É por
+isso que `freshness` nasce como `info`: um wiki grande sempre tem páginas vencidas, e isso não deveria
+quebrar CI. Wiki de norma ou de preço costuma subir para `warning`.
 
 ## Nível 2 - Julgamento
 
