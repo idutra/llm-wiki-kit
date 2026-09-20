@@ -11,6 +11,7 @@ Usage:
   python .llm-wiki/scripts/wiki_tools.py index [--root DIR] [--write]
   python .llm-wiki/scripts/wiki_tools.py manifest [--root DIR] [--write]
   python .llm-wiki/scripts/wiki_tools.py publish [--root DIR] [--out DIR] [--install REPO]...
+  python .llm-wiki/scripts/wiki_tools.py seen URL [URL ...] [--json]
   python .llm-wiki/scripts/wiki_tools.py log-tail [--root DIR] [-n 5]
   python .llm-wiki/scripts/wiki_tools.py log-append --op ingest --title T
          [--agent A] [--files f1,f2] [--approved-by X] [--notes N]
@@ -25,6 +26,7 @@ schema without editing this file. Built-in defaults apply to any missing key:
   required_by_type: page type -> [keys that must be non-empty] (inline lists)
   enums:            key -> [allowed values]; a dotted key reaches one nested level
   publish:          name, title, description, out, include_raw, max_sensitivity
+  research:         read by the wiki skill only (angles, max_sources, max_rounds, domains)
 
 Exit codes: 0 ok, 1 errors found (check) or bad usage, 2 wiki not found.
 """
@@ -57,7 +59,7 @@ DEFAULT_CATEGORIES = [
 DEFAULT_STATUSES = ("draft", "reviewed", "stale", "disputed")
 DEFAULT_REQUIRED_BY_TYPE = {"source": ["sources"]}
 SENSITIVITY = {"public", "internal", "confidential", "restricted"}
-LOG_OPS = {"init", "ingest", "query", "archive", "lint", "index", "export", "publish", "schema"}
+LOG_OPS = {"init", "ingest", "query", "archive", "lint", "index", "export", "publish", "research", "schema"}
 REQUIRED_KEYS = ("title", "type", "status", "created", "updated")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 LOG_HEADER_RE = re.compile(r"^## \[(\d{4}-\d{2}-\d{2})\] ([a-z]+) \| (.+)$")
@@ -675,6 +677,55 @@ def _utf8_when_piped() -> None:
 
 
 # ----------------------------------------------------------------------------
+# seen
+# ----------------------------------------------------------------------------
+
+TRACKING_PARAM_RE = re.compile(r"^(utm_[a-z]+|fbclid|gclid|mc_cid|mc_eid|ref|ref_src)$", re.I)
+
+
+def normalize_url(url: str) -> str:
+    """Canonical form used only to compare URLs: no scheme, no www., no fragment,
+    no tracking parameters, no trailing slash, lower-case host."""
+    from urllib.parse import parse_qsl, urlencode, urlsplit
+    parts = urlsplit(url.strip() if "://" in url else "https://" + url.strip())
+    host = parts.netloc.lower()
+    host = host[4:] if host.startswith("www.") else host
+    query = urlencode([(k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True)
+                       if not TRACKING_PARAM_RE.match(k)])
+    return host + parts.path.rstrip("/") + ("?" + query if query else "")
+
+
+def known_urls(wiki: Wiki) -> dict[str, str]:
+    """normalized URL -> repo-relative file that records it (raw/ header or page source_meta)."""
+    out: dict[str, str] = {}
+    for p in wiki.sources():
+        if p.suffix.lower() not in (".md", ".markdown", ".txt"):
+            continue
+        fm, _ = parse_frontmatter(read_text(p))
+        url = (fm or {}).get("source_url")
+        if isinstance(url, str) and "." in url and url != "pasted":
+            out.setdefault(normalize_url(url), wiki.rel(p))
+    for p in wiki.pages():
+        fm, _ = parse_frontmatter(read_text(p))
+        url = _dotted(fm or {}, "source_meta.origin_url")
+        if isinstance(url, str) and "." in url and url != "n/a":
+            out.setdefault(normalize_url(url), wiki.rel(p))
+    return out
+
+
+def cmd_seen(wiki: Wiki, urls: list[str], as_json: bool) -> int:
+    """Tell which URLs are already captured, so research does not fetch a source twice."""
+    known = known_urls(wiki)
+    result = [{"url": u, "seen": normalize_url(u) in known, "where": known.get(normalize_url(u))} for u in urls]
+    if as_json:
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+    else:
+        for r in result:
+            print(f"seen  {r['url']}  ->  {r['where']}" if r["seen"] else f"new   {r['url']}")
+    return 0
+
+
+# ----------------------------------------------------------------------------
 # publish
 # ----------------------------------------------------------------------------
 
@@ -835,6 +886,7 @@ def main(argv=None) -> int:
     s = sub.add_parser("manifest"); s.add_argument("--write", action="store_true")
     s = sub.add_parser("publish"); s.add_argument("--out", default=None)
     s.add_argument("--install", action="append", default=[], metavar="REPO")
+    s = sub.add_parser("seen"); s.add_argument("urls", nargs="+"); s.add_argument("--json", action="store_true")
     s = sub.add_parser("log-tail"); s.add_argument("-n", type=int, default=5)
     s = sub.add_parser("log-append")
     s.add_argument("--op", required=True); s.add_argument("--title", required=True)
@@ -855,6 +907,8 @@ def main(argv=None) -> int:
         return cmd_manifest(wiki, a.write)
     if a.cmd == "publish":
         return cmd_publish(wiki, a.out, a.install)
+    if a.cmd == "seen":
+        return cmd_seen(wiki, a.urls, a.json)
     if a.cmd == "log-tail":
         return cmd_log_tail(wiki, a.n)
     if a.cmd == "log-append":

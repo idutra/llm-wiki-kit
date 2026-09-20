@@ -358,6 +358,56 @@ class Publish(WikiCase):
                 self.assertTrue((Path(consumer) / rel / "acme-wiki/SKILL.md").is_file())
 
 
+class Seen(WikiCase):
+    def test_normalization_ignores_scheme_www_tracking_fragment_and_slash(self):
+        n = wiki_tools.normalize_url
+        self.assertEqual(n("https://www.Example.com/a/b/?utm_source=x&id=7#top"), n("http://example.com/a/b?id=7"))
+        self.assertNotEqual(n("https://example.com/a?id=7"), n("https://example.com/a?id=8"))
+
+    def test_reports_urls_already_captured_in_raw_or_cited_by_pages(self):
+        self.build({
+            "raw/research/2026-01-01-a.md": "---\nsource_url: https://example.com/post/\ntitle: A\n---\n\nTexto.\n",
+            "raw/research/2026-01-02-b.md": "---\nsource_url: pasted\n---\n\nColado.\n",
+            "wiki/sources/c.md": page("C", "source", extra="sources: [raw/research/2026-01-02-b.md]\n"
+                                                           "source_meta:\n  origin_url: https://papers.example.org/c\n"),
+        })
+        code, out = self.run_tool("seen", "http://www.example.com/post?utm_campaign=z",
+                                  "https://papers.example.org/c/", "https://example.com/other", "--json")
+        self.assertEqual(code, 0)
+        result = json.loads(out)
+        self.assertEqual([r["seen"] for r in result], [True, True, False])
+        self.assertEqual(result[0]["where"], "raw/research/2026-01-01-a.md")
+        self.assertEqual(result[1]["where"], "wiki/sources/c.md")
+
+    def test_research_is_a_valid_log_operation(self):
+        self.build({})
+        code, _ = self.run_tool("log-append", "--op", "research", "--title", "Pergunta")
+        self.assertEqual(code, 0)
+        self.assertEqual(self.messages("log"), [])
+
+
+class ShippedSkills(unittest.TestCase):
+    """Limits of the Agent Skills spec that no tool reports until the skill silently fails to load."""
+
+    def test_descriptions_are_ascii_and_within_1024_chars(self):
+        files = list((REPO / "skills").glob("*/SKILL.md")) + list((REPO / "agents").glob("*.md"))
+        self.assertGreaterEqual(len(files), 2)
+        for f in files:
+            fm, _ = wiki_tools.parse_frontmatter(f.read_text(encoding="utf-8"))
+            desc = fm["description"]
+            self.assertLessEqual(len(desc), 1024, f.name)
+            self.assertTrue(desc.isascii(), f.name)
+            self.assertEqual(fm["name"], f.parent.name if f.name == "SKILL.md" else f.stem)
+
+    def test_every_operation_in_the_router_has_its_reference(self):
+        import re
+        router = (REPO / "skills/wiki/SKILL.md").read_text(encoding="utf-8")
+        refs = set(re.findall(r"`(references/[a-z]+\.md)`", router))
+        self.assertGreaterEqual(len(refs), 10)
+        for ref in refs:
+            self.assertTrue((REPO / "skills/wiki" / ref).is_file(), ref)
+
+
 class PipedOutput(unittest.TestCase):
     def test_output_is_utf8_when_captured(self):
         with tempfile.TemporaryDirectory() as tmp:

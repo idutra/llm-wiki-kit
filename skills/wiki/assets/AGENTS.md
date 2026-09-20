@@ -91,7 +91,7 @@ Registro cronológico append-only. Nunca edite entradas antigas. Formato do cabe
 - notes: <uma linha>
 ```
 
-Operações válidas: `init`, `ingest`, `query`, `archive`, `lint`, `index`, `export`, `publish`, `schema`.
+Operações válidas: `init`, `ingest`, `query`, `archive`, `lint`, `index`, `export`, `publish`, `research`, `schema`.
 
 ## Workflows
 
@@ -103,6 +103,14 @@ Operações válidas: `init`, `ingest`, `query`, `archive`, `lint`, `index`, `ex
 4. Escreva a página `wiki/sources/<slug>.md` e propague para entidades, conceitos e sínteses afetadas. Uma fonte pode tocar 5 a 15 páginas.
 5. Atualize `index.md`, `overview.md` se a visão geral mudou, e registre no `log.md`.
 6. Rode `python .llm-wiki/scripts/wiki_tools.py check` e corrija problemas mecânicos.
+
+### Research (skill `wiki`, operação `research`)
+
+1. Parta de uma pergunta ou tese; confira antes o que o wiki já sabe. Registre a pergunta em `wiki/questions/`.
+2. Planeje ângulos de busca (técnico, aplicado, acadêmico, recente e contrário). Subagentes somente leitura buscam em paralelo e devolvem candidatos.
+3. A lista de fontes é **sempre** aprovada por um humano, em qualquer `approval_mode`. Só o texto das buscas sai do repositório.
+4. Capture as aprovadas em `raw/research/` com texto completo e cabeçalho de proveniência (`source_url`, `found_by: research`, `angle`, `capture`). Ingira uma por vez.
+5. Grave a síntese, marque divergências como `Disputed`, atualize a pergunta e registre `research` no log.
 
 ### Query (skill `wiki-query`)
 

@@ -44,6 +44,14 @@ export:
   marp: true               # permitir geracao de decks Marp em wiki/outputs/
   redact_sensitivity_above: internal   # nao exportar paginas acima deste nivel sem aprovacao
 
+research:                  # operacao `research` da skill wiki: busca fontes na web, com lista aprovada por humano
+  angles: [technical, applied, academic, recent, contrarian]   # contrarian nao e opcional
+  max_sources: 8           # teto de fontes capturadas por rodada
+  max_rounds: 2            # rodadas por pergunta (a segunda so cobre a lacuna da primeira)
+  raw_category: research   # fontes capturadas vao para raw/<raw_category>/
+  allow_domains: []        # vazio = qualquer dominio
+  block_domains: []
+
 publish:                   # `wiki_tools.py publish`: o wiki vira uma skill somente leitura para outros repositorios
   name: ""                 # nome da skill (kebab-case); vazio = <nome-do-repo>-wiki
   title: ""                # titulo legivel no corpo da skill
