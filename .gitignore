@@ -1,0 +1,16 @@
+# Package repo hygiene
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+
+# APM consumer artifacts (this repo is a producer; consumers get their own lockfile)
+apm_modules/
+apm.lock.yaml
+
+# Local agent state that must not be published with the package
+.claude/settings.local.json
+.cursor/mcp.json
+
+# IDE
+.idea/

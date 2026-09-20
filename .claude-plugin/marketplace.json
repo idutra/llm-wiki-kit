@@ -1,0 +1,26 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "idutra-agent-plugins",
+  "version": "0.2.0",
+  "description": "Marketplace de plugins e skills de agentes de codigo. Adicione com: claude plugin marketplace add <url-git-interna>",
+  "owner": {
+    "name": "Igor Dutra",
+    "url": "https://github.com/idutra"
+  },
+  "metadata": {
+    "homepage": "https://github.com/idutra/llm-wiki-kit"
+  },
+  "plugins": [
+    {
+      "name": "llm-wiki-kit",
+      "description": "LLM Wiki (Karpathy pattern) as 2 skills + 4 read-only subagents: maintain (wiki) and query (wiki-query), with publish-as-skill",
+      "version": "0.2.0",
+      "author": {
+        "name": "Igor Dutra"
+      },
+      "source": "./",
+      "category": "productivity",
+      "keywords": ["llm-wiki", "knowledge-base", "karpathy"]
+    }
+  ]
+}

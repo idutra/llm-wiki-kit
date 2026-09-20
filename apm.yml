@@ -1,0 +1,57 @@
+# apm.yml - manifesto do pacote para o APM (Agent Package Manager, github.com/microsoft/apm).
+#
+# Formato verificado em 2026-09-19 contra docs/src/content/docs/reference/manifest-schema.md
+# (v0.3 working draft, 2026-05-20) e reference/package-types.md do repositorio microsoft/apm.
+#
+# Decisao de layout: este repositorio e um "Plugin collection" (.claude-plugin/plugin.json + skills/ + agents/).
+# Para que o APM use esse layout (e instale skills E agents em todos os targets), este apm.yml e
+# intencionalmente "metadata-only": sem `.apm/` e sem `dependencies`. Se um dia adicionarmos
+# dependencias ou `.apm/`, o APM passa a tratar o repo como pacote APM classico e ignora o plugin.json.
+#
+# Consumo:
+#   apm install <host>/<org>/llm-wiki-kit#v0.1.0            # git interno (GHE, Azure DevOps, GitLab)
+#   apm install <org>/llm-wiki-kit --skill wiki-query        # so a skill de leitura
+#   apm install llm-wiki-kit@idutra-agent-plugins            # via marketplace registrado
+#   apm pack                                                 # gera marketplace.json a partir do bloco abaixo
+
+name: llm-wiki-kit
+version: 0.2.0
+description: LLM Wiki (Karpathy) as agent skills and subagents with corporate governance
+author: Igor Dutra
+license: MIT
+
+# Fixar targets torna a saida de `apm compile`/`apm install` deterministica entre maquinas.
+# Remova a lista para deixar o APM detectar pelas pastas existentes no repositorio consumidor.
+targets:
+  - claude
+  - cursor
+  - codex
+  - copilot
+
+# `type:` omitido de proposito: o APM deriva o comportamento do conteudo (plugin.json + skills/ + agents/).
+
+# Consentimento explicito de publicacao (forma mais forte para governanca; exigido por
+# policy.manifest.require_explicit_includes em apm-policy.yml quando ativado).
+includes:
+  - skills/
+  - agents/
+  - hooks/
+  - .claude-plugin/
+
+# Bloco de autoria do marketplace: `apm pack` emite .claude-plugin/marketplace.json compativel com
+# Claude Code a partir daqui. Mantido em sincronia manual com o arquivo versionado enquanto o POC durar.
+marketplace:
+  owner:
+    name: Igor Dutra
+    url: https://github.com/idutra
+  output: .claude-plugin/marketplace.json
+  metadata:
+    homepage: https://github.com/idutra/llm-wiki-kit
+  build:
+    tagPattern: "v{version}"
+  packages:
+    - name: llm-wiki-kit
+      source: ./
+      description: LLM Wiki (Karpathy pattern) as skills + subagents
+      tags: [llm-wiki, knowledge-base, karpathy]
+      category: productivity
