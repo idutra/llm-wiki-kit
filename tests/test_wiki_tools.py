@@ -427,6 +427,34 @@ class Scan(WikiCase):
         self.assertEqual(self.messages("log"), [])
 
 
+class ExampleWiki(unittest.TestCase):
+    """examples/team-wiki is documentation: if it stops being a valid wiki, the docs lie."""
+
+    EXAMPLE = REPO / "examples" / "team-wiki"
+
+    def test_check_passes_with_no_errors_and_no_warnings(self):
+        wiki = wiki_tools.Wiki(self.EXAMPLE)
+        result = wiki_tools.run_check(wiki)
+        self.assertEqual(result["errors"], [])
+        self.assertEqual(result["warnings"], [])
+
+    def test_index_and_manifest_are_up_to_date_and_fully_summarized(self):
+        index = (self.EXAMPLE / "wiki/index.md").read_text(encoding="utf-8")
+        self.assertNotIn("(no summary)", index)
+        wiki = wiki_tools.Wiki(self.EXAMPLE)
+        sources = list(wiki.sources())
+        self.assertTrue(sources)
+        manifest = (self.EXAMPLE / "wiki/manifest.md").read_text(encoding="utf-8")
+        recorded = wiki_tools.parse_manifest(manifest)
+        for p in sources:
+            rel = p.relative_to(wiki.raw_dir).as_posix()
+            self.assertEqual(recorded.get(rel), wiki_tools.source_hash(p), rel)
+
+    def test_it_ships_its_own_copy_of_the_helper_at_the_current_version(self):
+        local = self.EXAMPLE / ".llm-wiki/scripts/wiki_tools.py"
+        self.assertIn(f'KIT_VERSION = "{wiki_tools.KIT_VERSION}"', local.read_text(encoding="utf-8"))
+
+
 class ShippedSkills(unittest.TestCase):
     """Limits of the Agent Skills spec that no tool reports until the skill silently fails to load."""
 
@@ -444,7 +472,10 @@ class ShippedSkills(unittest.TestCase):
         import re
         versions = {"wiki_tools.py": wiki_tools.KIT_VERSION}
         for rel in (".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"):
-            versions[rel] = json.loads((REPO / rel).read_text(encoding="utf-8"))["version"]
+            manifest = json.loads((REPO / rel).read_text(encoding="utf-8"))
+            versions[rel] = manifest["version"]
+            for plugin in manifest.get("plugins", []):  # marketplace repeats it per plugin
+                versions[f"{rel}:{plugin['name']}"] = plugin["version"]
         versions["apm.yml"] = re.search(r"^version: (\S+)", (REPO / "apm.yml").read_text(encoding="utf-8"), re.M).group(1)
         for f in (REPO / "skills").glob("*/SKILL.md"):
             fm, _ = wiki_tools.parse_frontmatter(f.read_text(encoding="utf-8"))

@@ -1,0 +1,40 @@
+# CHANGELOG
+
+Formato: uma seção por versão fechada, da mais recente para a mais antiga. Versões seguem o semver do
+pacote; o fechamento de cada uma está descrito em [`docs/convencao-de-branches.md`](docs/convencao-de-branches.md).
+
+## 0.5.0 - 2026-09-20
+
+- `docs/anatomia-do-repositorio.md`: como fica um repositório com LLM Wiki, camada por camada.
+- `docs/uso-em-uma-semana.md`: passo a passo de uso, do `init` ao consumo em outro repositório.
+- `examples/team-wiki/`: wiki de exemplo completo, gerado pelas próprias operações; passa em `check`,
+  `manifest` e `publish`.
+- `docs/convencao-de-branches.md`: `release/`, `hotfix/`, `feature/`, `bugfix/` e o fechamento de versão
+  com commit de fechamento e tag.
+
+## 0.4.0 - 2026-09-20
+
+- Operação `capture`: lições de uma sessão de trabalho viram nota imutável em `raw/notes/`, com revisão
+  humana e scanner de segredos antes da gravação; itens marcados `verified` ou `reported`.
+- `wiki_tools.py scan <arquivo>|-`: padrões de segredo e PII, sem ecoar o valor encontrado.
+- `wiki_tools.py --version` e a seção "Atualizar um wiki existente" em `references/init.md`.
+- Template do consumidor ganha a seção "Devolver ao wiki".
+
+## 0.3.0 - 2026-09-20
+
+- Operação `research`: busca por ângulos em paralelo, lista de fontes sempre aprovada por humano, captura
+  em `raw/research/` com proveniência, ingestão e síntese; modo tese com veredito.
+- Subagente `wiki-research-agent`, somente leitura e sem shell.
+- `wiki_tools.py seen <url>...`: URLs normalizadas contra `raw/` e `origin_url`.
+
+## 0.2.0 - 2026-09-20
+
+- As oito skills `wiki-*` viram duas: `wiki` (mantenedor, roteador com uma referência por operação) e
+  `wiki-query` (leitor, somente leitura). O arquivamento vira a operação `archive`.
+- Operação `publish` e `wiki_tools.py publish [--out] [--install REPO]`: o wiki vira skill somente leitura
+  para outros repositórios.
+- `wiki/manifest.md` e detecção de fonte alterada (`source-changed`).
+
+## 0.1.0 - 2026-09-20
+
+- Primeira versão: oito skills, quatro subagentes somente leitura, hook de sessão e `wiki_tools.py`.

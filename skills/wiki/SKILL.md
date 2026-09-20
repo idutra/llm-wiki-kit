@@ -4,7 +4,7 @@ description: Maintain an LLM Wiki (Karpathy pattern) - a git-versioned markdown 
 license: MIT
 metadata:
   author: idutra
-  version: "0.4.0"
+  version: "0.5.0"
   package: llm-wiki-kit
 ---
 
