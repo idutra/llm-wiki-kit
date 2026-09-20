@@ -2,7 +2,7 @@
 
 Skills e subagentes que transformam o agente de código que você já usa (Claude Code, Cursor, Codex, GitHub Copilot) em um mantenedor disciplinado de um **LLM Wiki** no padrão de Andrej Karpathy, com governança corporativa.
 
-> Status: **POC / rascunho**. Nome do pacote: `llm-wiki-kit` (versão `0.2.0`). Proposta e especificação de implementação em [`docs/solution-draft.md`](docs/solution-draft.md).
+> Status: **POC / rascunho**. Nome do pacote: `llm-wiki-kit` (versão `0.3.0`). Proposta e especificação de implementação em [`docs/solution-draft.md`](docs/solution-draft.md).
 
 ## O que é o padrão LLM Wiki
 
@@ -61,6 +61,7 @@ llm-wiki-kit/
 ├── hooks/
 │   └── hooks.json                # Hook SessionStart (Claude Code): imprime as 3 últimas entradas do log
 ├── agents/                       # Subagentes somente leitura (frontmatter multi-runtime)
+│   ├── wiki-research-agent.md
 │   ├── wiki-ingest-agent.md
 │   ├── wiki-query-agent.md
 │   ├── wiki-lint-agent.md
@@ -68,7 +69,7 @@ llm-wiki-kit/
 ├── skills/                       # Duas skills no padrão Agent Skills
 │   ├── wiki/                     # Mantenedor: ponto de entrada único, roteia para uma referência por operação
 │   │   ├── SKILL.md
-│   │   ├── references/           #   init, ingest, archive, lint, index, search, export, publish, conventions
+│   │   ├── references/           #   init, research, ingest, archive, lint, index, search, export, publish, conventions
 │   │   └── assets/               # Copiado para o repositório-alvo pelo init
 │   │       ├── AGENTS.md         #   -> AGENTS.md (schema do wiki)
 │   │       ├── CLAUDE.md         #   -> CLAUDE.md (só "@AGENTS.md")
@@ -100,6 +101,7 @@ Operações da skill `wiki` (`/wiki <operação>` no Claude Code e no Cursor, `$
 | Operação | O que faz | Referência |
 |---|---|---|
 | `init` | Cria ou adota um wiki: `raw/`, `wiki/`, `.llm-wiki/`, schema em `AGENTS.md` + `CLAUDE.md`. Idempotente. | `references/init.md` |
+| `research` | De uma pergunta ou tese a fontes compiladas: ângulos de busca em paralelo, lista aprovada por humano, captura em `raw/` com proveniência, ingestão e síntese. | `references/research.md` |
 | `ingest` | Uma fonte por vez: captura imutável, leitura completa, triagem, página `sources/`, propagação, índice, manifesto e log. | `references/ingest.md` |
 | `archive` | Guarda no wiki uma resposta boa do `wiki-query`; registra perguntas abertas. | `references/archive.md` |
 | `lint` | Checagem mecânica (`check`) e de julgamento (contradições, obsolescência, lacunas). Corrige só o que é seguro. | `references/lint.md` |
@@ -108,6 +110,19 @@ Operações da skill `wiki` (`/wiki <operação>` no Claude Code e no Cursor, `$
 | `export` | Decks Marp, relatórios, tabelas e gráficos em `wiki/outputs/`, com proveniência. Não introduz fatos novos. | `references/export.md` |
 | `publish` | Monta o wiki como **skill somente leitura** para outros repositórios e outras ferramentas. | `references/publish.md` |
 | `conventions` / `schema` | Referência de formato e processo para evoluir o schema. | `references/conventions.md` |
+
+### Pesquisar: como o wiki cresce sem alguém trazer a fonte
+
+```
+/wiki research "vale trocar X por Y para o caso Z?"
+```
+
+1. O agente confere o que o wiki já sabe e registra a pergunta em `wiki/questions/`.
+2. Planeja ângulos (`technical`, `applied`, `academic`, `recent`, `contrarian`) e dispara um `wiki-research-agent` somente leitura por ângulo, em paralelo. O ângulo contrário é obrigatório: sem ele a pesquisa só confirma a pergunta.
+3. `wiki_tools.py seen <urls>` descarta o que já foi capturado. A lista consolidada vai para **aprovação humana, sempre**, com alertas (paywall, licença, interesse comercial) e com o que ficou de fora.
+4. As aprovadas entram em `raw/research/` com texto completo e cabeçalho de proveniência; são ingeridas uma a uma; a resposta vira uma síntese versionada, com divergências marcadas como `Disputed`.
+
+No modo tese ("verifique esta tese: ..."), cada ângulo busca evidência a favor e contra, e a síntese fecha com um veredito. Só o texto das buscas sai do repositório.
 
 ### Publicar: como o wiki entra no dia a dia
 
@@ -125,6 +140,7 @@ Todos são **somente leitura** (`readonly: true`, `disallowedTools: Write, Edit,
 
 | Agente | Propósito | Quando é acionado |
 |---|---|---|
+| `wiki-research-agent` | Pesquisa na web **um** ângulo de uma pergunta e devolve candidatos a fonte (URL, autor, data, tipo, por que importa, posição, alertas, trecho literal). Não captura, não responde, sem shell. | Pela skill `wiki`, operação `research`, um por ângulo, em paralelo. |
 | `wiki-ingest-agent` | Lê exatamente uma fonte de `raw/` e as páginas relevantes e devolve propostas (páginas a criar/atualizar, claims com localizador, contradições, dados sensíveis, perguntas abertas). | Pela skill `wiki`, operação `ingest`, para fontes longas ou lotes. |
 | `wiki-query-agent` | Dada uma pergunta, lê `index.md`, busca com sinônimos (`rg` ou `qmd`), lê candidatos e devolve páginas, trechos exatos com caminho, contradições abertas e lacunas. Não sintetiza a resposta final. | Pela skill `wiki-query`, para perguntas amplas ou multi-tema. |
 | `wiki-lint-agent` | Revisa um subconjunto de páginas em busca de contradições, claims obsoletos, conceitos sem página, cross-references faltantes, blocos `Status:` malformados e problemas de sensibilidade; devolve achados com severidade e `safe_to_autofix`. | Pela skill `wiki`, operação `lint`, para paralelizar o nível de julgamento. |

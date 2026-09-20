@@ -13,7 +13,7 @@ Este documento é a referência citada por `hooks/hooks.json`, `skills/wiki-init
 
 ---
 
-## 0. Mudanças na v0.2.0 (leia antes do resto)
+## 0. Mudanças nas v0.2.0 e v0.3.0 (leia antes do resto)
 
 As seções 1 a 11 descrevem a v0.1.0, com oito skills `wiki-*`. A v0.2.0 mantém todo o comportamento descrito, mas muda o empacotamento e acrescenta uma operação. Onde o texto abaixo disser "skill `wiki-<operação>`", leia "skill `wiki`, operação `<operação>`, referência `skills/wiki/references/<operação>.md`".
 
@@ -24,12 +24,13 @@ As seções 1 a 11 descrevem a v0.1.0, com oito skills `wiki-*`. A v0.2.0 manté
 | Assets do init | `skills/wiki-init/assets/` | `skills/wiki/assets/` | Consequência da consolidação |
 | Manifesto de fontes | não existia | `wiki/manifest.md` via `wiki_tools.py manifest --write`; `check` emite `source-changed` e `manifest` | O índice diz o que o wiki já sabe; o manifesto diz o que existe para saber, e o hash acusa fonte alterada |
 | Publicação | não existia | Operação `publish` + `wiki_tools.py publish [--out] [--install REPO]`: monta o wiki como skill somente leitura (`SKILL.md`, `references/wiki`, `references/raw`, `VERSION.md`) | É como o conhecimento chega aos outros repositórios e às outras ferramentas sem ninguém lembrar de consultar o wiki |
-| Log | 8 operações | + `publish` | Auditoria de o que saiu do repositório |
-| Testes | 13 | 27 (`python -m unittest discover -s tests`) | Manifesto e publish cobertos |
+| Log | 8 operações | + `publish`, + `research` | Auditoria de o que saiu do repositório e de o que entrou pela web |
+| Pesquisa (0.3.0) | não existia | Operação `research` + subagente `wiki-research-agent` (um por ângulo, em paralelo, somente leitura, sem shell) + `wiki_tools.py seen <url>...` + bloco `research:` no config | O wiki deixa de depender de alguém trazer a fonte. Lista de fontes sempre aprovada por humano; só o texto das buscas sai do repositório; captura em `raw/research/` com `found_by`, `angle` e `capture: full/partial` |
+| Testes | 13 | 30 (`python -m unittest discover -s tests`) | Manifesto e publish cobertos |
 
 Guardas do `publish`: recusa com erro no `check`, sem `publish.description`, com página acima de `publish.max_sensitivity`, ou com link que não resolve dentro da skill montada. `raw/` não tem classificação de sensibilidade; distribuí-lo (`include_raw: true`) é decisão humana.
 
-Próximos itens do roadmap do kit, fora deste documento: `research` (subagentes somente leitura por ângulo, lista de fontes aprovada por humano, captura em `raw/` com proveniência), `capture` (lições de sessão viram fonte), severidade e `--fail-on` no lint, frescor por volatilidade, `_index.md` por diretório.
+Próximos itens do roadmap do kit, fora deste documento: `capture` (lições de sessão viram fonte), severidade e `--fail-on` no lint, frescor por volatilidade, `_index.md` por diretório.
 
 ---
 
