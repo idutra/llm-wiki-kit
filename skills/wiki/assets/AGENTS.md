@@ -91,7 +91,7 @@ Registro cronológico append-only. Nunca edite entradas antigas. Formato do cabe
 - notes: <uma linha>
 ```
 
-Operações válidas: `init`, `ingest`, `query`, `archive`, `lint`, `index`, `export`, `publish`, `research`, `schema`.
+Operações válidas: `init`, `ingest`, `query`, `archive`, `lint`, `index`, `export`, `publish`, `research`, `capture`, `schema`.
 
 ## Workflows
 
@@ -111,6 +111,13 @@ Operações válidas: `init`, `ingest`, `query`, `archive`, `lint`, `index`, `ex
 3. A lista de fontes é **sempre** aprovada por um humano, em qualquer `approval_mode`. Só o texto das buscas sai do repositório.
 4. Capture as aprovadas em `raw/research/` com texto completo e cabeçalho de proveniência (`source_url`, `found_by: research`, `angle`, `capture`). Ingira uma por vez.
 5. Grave a síntese, marque divergências como `Disputed`, atualize a pergunta e registre `research` no log.
+
+### Capture (skill `wiki`, operação `capture`)
+
+1. Ao fim de uma sessão com decisão tomada, erro corrigido, fato verificado ou correção ao wiki, **ofereça** registrar uma nota de sessão. Nunca capture sem o humano pedir ou aceitar.
+2. A nota tem Contexto, Decisões, Erros e correções, Fatos verificados, Correções ao wiki e Perguntas em aberto; cada item marcado `verified` ou `reported`. Não é transcrição e não leva segredos nem dados pessoais.
+3. O humano aprova o texto; depois `python .llm-wiki/scripts/wiki_tools.py scan <arquivo>` precisa sair limpo **antes** de gravar em `raw/notes/`, porque `raw/` é imutável e versionado.
+4. A nota entra no wiki pelo `ingest`. Ela contesta uma fonte primária (`Disputed`), não a sobrescreve. Registre `capture` no log.
 
 ### Query (skill `wiki-query`)
 

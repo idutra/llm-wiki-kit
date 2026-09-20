@@ -12,6 +12,7 @@ Usage:
   python .llm-wiki/scripts/wiki_tools.py manifest [--root DIR] [--write]
   python .llm-wiki/scripts/wiki_tools.py publish [--root DIR] [--out DIR] [--install REPO]...
   python .llm-wiki/scripts/wiki_tools.py seen URL [URL ...] [--json]
+  python .llm-wiki/scripts/wiki_tools.py scan FILE|- [...] [--json]   (secrets/PII gate; exit 1 on findings)
   python .llm-wiki/scripts/wiki_tools.py log-tail [--root DIR] [-n 5]
   python .llm-wiki/scripts/wiki_tools.py log-append --op ingest --title T
          [--agent A] [--files f1,f2] [--approved-by X] [--notes N]
@@ -26,6 +27,7 @@ schema without editing this file. Built-in defaults apply to any missing key:
   required_by_type: page type -> [keys that must be non-empty] (inline lists)
   enums:            key -> [allowed values]; a dotted key reaches one nested level
   publish:          name, title, description, out, include_raw, max_sensitivity
+  capture:          read by the wiki skill only (raw_category, author)
   research:         read by the wiki skill only (angles, max_sources, max_rounds, domains)
 
 Exit codes: 0 ok, 1 errors found (check) or bad usage, 2 wiki not found.
@@ -44,6 +46,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+KIT_VERSION = "0.4.0"  # version of llm-wiki-kit this copy came from; see `--version`
 CONFIG_REL = ".llm-wiki/config.yml"
 # Built-in page vocabulary; .llm-wiki/config.yml overrides it (see Schema).
 # (wiki/ subdirectory, page type, heading label used in index.md)
@@ -59,7 +62,7 @@ DEFAULT_CATEGORIES = [
 DEFAULT_STATUSES = ("draft", "reviewed", "stale", "disputed")
 DEFAULT_REQUIRED_BY_TYPE = {"source": ["sources"]}
 SENSITIVITY = {"public", "internal", "confidential", "restricted"}
-LOG_OPS = {"init", "ingest", "query", "archive", "lint", "index", "export", "publish", "research", "schema"}
+LOG_OPS = {"init", "ingest", "query", "archive", "lint", "index", "export", "publish", "research", "capture", "schema"}
 REQUIRED_KEYS = ("title", "type", "status", "created", "updated")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 LOG_HEADER_RE = re.compile(r"^## \[(\d{4}-\d{2}-\d{2})\] ([a-z]+) \| (.+)$")
@@ -677,6 +680,58 @@ def _utf8_when_piped() -> None:
 
 
 # ----------------------------------------------------------------------------
+# scan
+# ----------------------------------------------------------------------------
+
+_PLACEHOLDER_RE = re.compile(r"^(<|\$\{|\{\{|%|\*{3,}|x{3,}|\.{3})", re.I)
+SCAN_PATTERNS = [
+    ("secret", "private-key", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")),
+    ("secret", "aws-access-key", re.compile(r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b")),
+    ("secret", "github-token", re.compile(r"\b(?:gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{22,})\b")),
+    ("secret", "slack-token", re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{10,}")),
+    ("secret", "api-key", re.compile(r"\bsk-[A-Za-z0-9_-]{20,}")),
+    ("secret", "jwt", re.compile(r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}")),
+    ("secret", "bearer-token", re.compile(r"(?i)\bbearer\s+([A-Za-z0-9._~+/-]{20,})")),
+    ("secret", "url-credentials", re.compile(r"\b[a-z][a-z0-9+.-]*://[^\s:/@]+:([^\s@/]{3,})@")),
+    ("secret", "assignment", re.compile(
+        r"(?i)\b(?:password|passwd|pwd|senha|secret|token|api[_-]?key|client[_-]?secret|access[_-]?key)\b"
+        r"\s*[:=]\s*[\"']?([^\s\"'`,;]{6,})")),
+    ("pii", "email", re.compile(r"\b[\w.+-]+@(?!example\.)[\w-]+(?:\.[\w-]+)+\b")),
+]
+
+
+def scan_text(text: str) -> list[dict]:
+    """Known secret and PII patterns, line by line. Never returns the matched value in full."""
+    findings = []
+    for n, line in enumerate(text.splitlines(), 1):
+        taken: list[tuple[int, int]] = []
+        for level, kind, rx in SCAN_PATTERNS:
+            for m in rx.finditer(line):
+                value = m.group(m.lastindex or 0)
+                if _PLACEHOLDER_RE.match(value) or any(a < m.end() and m.start() < b for a, b in taken):
+                    continue
+                taken.append(m.span())
+                findings.append({"level": level, "kind": kind, "line": n, "preview": value[:4] + "..."})
+    return findings
+
+
+def cmd_scan(paths: list[str], as_json: bool) -> int:
+    """Gate before a note is written to raw/, which is immutable and versioned."""
+    report = []
+    for raw_path in paths:
+        text = sys.stdin.read() if raw_path == "-" else read_text(Path(raw_path))
+        for f in scan_text(text):
+            report.append({"path": raw_path, **f})
+    if as_json:
+        print(json.dumps(report, indent=2, ensure_ascii=False))
+    else:
+        for r in report:
+            print(f"{r['level'].upper():7} [{r['kind']}] {r['path']}:{r['line']}  {r['preview']}")
+        print(f"\n{len(report)} finding(s). Pattern scan only: a clean result does not replace human review.")
+    return 1 if report else 0
+
+
+# ----------------------------------------------------------------------------
 # seen
 # ----------------------------------------------------------------------------
 
@@ -879,6 +934,7 @@ def cmd_publish(wiki: Wiki, out, install) -> int:
 def main(argv=None) -> int:
     _utf8_when_piped()
     ap = argparse.ArgumentParser(description="LLM Wiki deterministic helpers")
+    ap.add_argument("--version", action="version", version=KIT_VERSION)
     ap.add_argument("--root", default=".", help="repository root (default: cwd)")
     sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("check"); s.add_argument("--json", action="store_true")
@@ -886,6 +942,7 @@ def main(argv=None) -> int:
     s = sub.add_parser("manifest"); s.add_argument("--write", action="store_true")
     s = sub.add_parser("publish"); s.add_argument("--out", default=None)
     s.add_argument("--install", action="append", default=[], metavar="REPO")
+    s = sub.add_parser("scan"); s.add_argument("paths", nargs="+"); s.add_argument("--json", action="store_true")
     s = sub.add_parser("seen"); s.add_argument("urls", nargs="+"); s.add_argument("--json", action="store_true")
     s = sub.add_parser("log-tail"); s.add_argument("-n", type=int, default=5)
     s = sub.add_parser("log-append")
@@ -894,6 +951,9 @@ def main(argv=None) -> int:
     s.add_argument("--files", default=""); s.add_argument("--approved-by", default="")
     s.add_argument("--notes", default="")
     a = ap.parse_args(argv)
+
+    if a.cmd == "scan":  # works on any text, inside a wiki or not
+        return cmd_scan(a.paths, a.json)
 
     wiki = Wiki(Path(a.root).resolve())
     if not wiki.exists():

@@ -44,6 +44,10 @@ export:
   marp: true               # permitir geracao de decks Marp em wiki/outputs/
   redact_sensitivity_above: internal   # nao exportar paginas acima deste nivel sem aprovacao
 
+capture:                   # operacao `capture`: licoes de uma sessao de trabalho viram nota imutavel em raw/
+  raw_category: notes      # notas vao para raw/<raw_category>/
+  author: ""               # humano responsavel pelas sessoes (vazio = perguntar)
+
 research:                  # operacao `research` da skill wiki: busca fontes na web, com lista aprovada por humano
   angles: [technical, applied, academic, recent, contrarian]   # contrarian nao e opcional
   max_sources: 8           # teto de fontes capturadas por rodada

@@ -386,6 +386,47 @@ class Seen(WikiCase):
         self.assertEqual(self.messages("log"), [])
 
 
+class Scan(WikiCase):
+    def scan(self, text: str):
+        f = self.root / "nota.md"
+        f.write_text(text, encoding="utf-8")
+        code, out = self.run_tool("scan", str(f), "--json")
+        return code, json.loads(out)
+
+    def test_clean_note_passes_without_a_wiki(self):
+        code, found = self.scan("# Nota\n\n- Decisão: usar WAL. Evidência: verified.\nContato: time@example.com\n")
+        self.assertEqual((code, found), (0, []))
+
+    def test_finds_known_secret_shapes_and_never_echoes_them(self):
+        secret = "ghp_" + "a1B2" * 10
+        code, found = self.scan(
+            f"token do CI: {secret}\n"
+            "DATABASE_URL=postgres://app:s3nh4Forte@db.internal:5432/app\n"
+            "senha: hunter2hunter2\n"
+            "-----BEGIN RSA PRIVATE KEY-----\n"
+            "AKIAABCDEFGHIJKLMNOP\n")
+        self.assertEqual(code, 1)
+        self.assertEqual({f["kind"] for f in found},
+                         {"github-token", "url-credentials", "assignment", "private-key", "aws-access-key"})
+        self.assertEqual([f["line"] for f in found], [1, 2, 3, 4, 5])
+        self.assertNotIn(secret, json.dumps(found))
+
+    def test_placeholders_and_redactions_are_not_findings(self):
+        code, found = self.scan("password: <redacted: senha>\napi_key=${API_KEY}\ntoken: {{token}}\nsenha=********\n")
+        self.assertEqual((code, found), (0, []))
+
+    def test_email_is_reported_as_pii(self):
+        code, found = self.scan("Falar com maria.silva@empresa.com.br sobre o incidente.\n")
+        self.assertEqual(code, 1)
+        self.assertEqual([(f["level"], f["kind"]) for f in found], [("pii", "email")])
+
+    def test_capture_is_a_valid_log_operation(self):
+        self.build({})
+        code, _ = self.run_tool("log-append", "--op", "capture", "--title", "Nota")
+        self.assertEqual(code, 0)
+        self.assertEqual(self.messages("log"), [])
+
+
 class ShippedSkills(unittest.TestCase):
     """Limits of the Agent Skills spec that no tool reports until the skill silently fails to load."""
 
@@ -398,6 +439,17 @@ class ShippedSkills(unittest.TestCase):
             self.assertLessEqual(len(desc), 1024, f.name)
             self.assertTrue(desc.isascii(), f.name)
             self.assertEqual(fm["name"], f.parent.name if f.name == "SKILL.md" else f.stem)
+
+    def test_every_manifest_and_the_helper_agree_on_the_version(self):
+        import re
+        versions = {"wiki_tools.py": wiki_tools.KIT_VERSION}
+        for rel in (".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"):
+            versions[rel] = json.loads((REPO / rel).read_text(encoding="utf-8"))["version"]
+        versions["apm.yml"] = re.search(r"^version: (\S+)", (REPO / "apm.yml").read_text(encoding="utf-8"), re.M).group(1)
+        for f in (REPO / "skills").glob("*/SKILL.md"):
+            fm, _ = wiki_tools.parse_frontmatter(f.read_text(encoding="utf-8"))
+            versions[f.parent.name] = fm["metadata"]["version"]
+        self.assertEqual(len(set(versions.values())), 1, versions)
 
     def test_every_operation_in_the_router_has_its_reference(self):
         import re
