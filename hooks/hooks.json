@@ -1,0 +1,17 @@
+{
+  "description": "Optional Claude Code hooks for llm-wiki-kit. On session start, if the current repo is an LLM Wiki, print the last 3 log entries so the agent resumes with context. Deterministic; no LLM calls. Cursor and Codex have their own hook formats; see docs/solution-draft.md section 7.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python -c \"import os,subprocess,sys; p='.llm-wiki/scripts/wiki_tools.py'; sys.exit(0) if not os.path.exists(p) else subprocess.call([sys.executable,p,'log-tail','-n','3'])\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}

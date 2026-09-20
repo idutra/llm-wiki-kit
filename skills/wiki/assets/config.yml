@@ -1,0 +1,53 @@
+# .llm-wiki/config.yml - configuracao local deste wiki.
+# Lido pelas skills wiki e wiki-query antes de qualquer operacao. Chaves em ingles; valores livres.
+
+schema_version: 1
+language: pt-BR            # idioma do conteudo das paginas
+link_style: markdown       # markdown | wikilink (Obsidian)
+approval_mode: plan        # none | plan | all  (ver secao Governanca em AGENTS.md)
+auto_archive: false        # arquivar automaticamente comparacoes/sinteses geradas em query
+default_sensitivity: internal   # public | internal | confidential | restricted
+
+paths:
+  raw: raw
+  wiki: wiki
+  assets: raw/assets
+
+# Vocabulario de paginas, lido por .llm-wiki/scripts/wiki_tools.py (check e index).
+# Para criar um tipo de pagina, declare-o aqui (e crie o template em .llm-wiki/templates/);
+# nao edite o script. Mudar este bloco e uma operacao `schema` (ver AGENTS.md).
+categories:                # subdiretorio de wiki/ -> tipo de pagina (`type`), na ordem do index.md
+  sources: source
+  entities: entity
+  concepts: concept
+  syntheses: synthesis
+  comparisons: comparison
+  questions: question
+  outputs: output
+
+statuses: [draft, reviewed, stale, disputed]   # valores validos de `status`
+
+# Opcionais (descomente para usar):
+# category_labels:         # subdiretorio -> titulo da secao no index.md (padrao: nome capitalizado)
+#   decisions: Decisoes
+# extra_types: [note]      # tipos validos sem diretorio proprio
+# required_by_type:        # tipo -> chaves obrigatorias e nao vazias (sempre lista inline)
+#   source: [sources]
+# enums:                   # chave -> valores permitidos; chave pontuada alcanca um nivel (source_meta.kind)
+#   confidence: [high, medium, low]
+
+search:
+  engine: index            # index | rg | qmd
+  qmd_collection: ""       # nome da colecao qmd, se engine: qmd
+
+export:
+  marp: true               # permitir geracao de decks Marp em wiki/outputs/
+  redact_sensitivity_above: internal   # nao exportar paginas acima deste nivel sem aprovacao
+
+publish:                   # `wiki_tools.py publish`: o wiki vira uma skill somente leitura para outros repositorios
+  name: ""                 # nome da skill (kebab-case); vazio = <nome-do-repo>-wiki
+  title: ""                # titulo legivel no corpo da skill
+  description: ""          # OBRIGATORIO para publicar: e o que faz o agente carregar a skill. Cite os assuntos cobertos.
+  out: dist                # diretorio de saida (derivado; mantenha no .gitignore)
+  include_raw: true        # false = nao distribuir as fontes, so as paginas
+  max_sensitivity: internal   # recusa publicar se houver pagina acima deste nivel
