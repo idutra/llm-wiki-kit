@@ -50,6 +50,26 @@ python .llm-wiki/scripts/wiki_tools.py log-append --op init --title "Wiki inicia
 
 5. Se `approval_mode` for `all`, oriente o usuário a proteger a branch principal e exigir PR para `wiki/**` (seção Governança do `AGENTS.md`).
 
+## Atualizar um wiki existente
+
+O `init` copia arquivos do kit para dentro do repositório do wiki; quando o kit evolui, essas cópias ficam para trás. Sintomas: `wiki_tools.py` não conhece um subcomando (`manifest`, `seen`, `scan`, `publish`), `log-append` recusa uma operação, ou o `AGENTS.md` não descreve um workflow que a skill oferece.
+
+Cada arquivo tem um dono, e isso decide como atualizar:
+
+| Arquivo no wiki | Dono | Como atualizar |
+|---|---|---|
+| `.llm-wiki/scripts/wiki_tools.py` | Kit | **Sobrescreva** com `assets/scripts/wiki_tools.py`. Ninguém deve editá-lo no wiki; o vocabulário vem do `config.yml`. |
+| `.llm-wiki/templates/*.md` | Wiki | Copie só os templates que **não existem** (por exemplo `consumer-skill.md`). Para os demais, mostre o diff e deixe o humano decidir. |
+| `.llm-wiki/config.yml` | Wiki | Não sobrescreva. Acrescente ao final os blocos que faltam (`publish:`, `research:`, `capture:`) a partir de `assets/config.yml`. |
+| `AGENTS.md` | Wiki | Não sobrescreva: o time pode ter regras próprias. Compare com `assets/AGENTS.md`, proponha os workflows e as operações de log que faltam. É operação `schema`: aprovação humana e log. |
+| `wiki/log.md`, `wiki/index.md`, páginas | Wiki | Não toque. |
+
+Depois: `python .llm-wiki/scripts/wiki_tools.py --version` deve mostrar a versão do kit; rode `check`, `manifest --write` se o manifesto ainda não existir, e registre:
+
+```
+python .llm-wiki/scripts/wiki_tools.py log-append --op schema --title "Atualizado para llm-wiki-kit <versão>" --agent <agente> --files ".llm-wiki/, AGENTS.md" --approved-by "<nome>" --notes "from=<versão anterior ou desconhecida>"
+```
+
 ## Relatório final
 
 Liste: arquivos criados, arquivos pré-existentes preservados, decisões de configuração, backlog de ingestão e próximos passos (operação `ingest` para a primeira fonte).

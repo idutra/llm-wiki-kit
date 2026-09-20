@@ -35,6 +35,12 @@ Se `references/raw/` não existir, as fontes não foram publicadas com esta vers
 - O seu conhecimento geral é bem-vindo, desde que marcado: "não consta no wiki".
 - Esta skill é somente leitura: não edite nada em `references/`. Defeito ou lacuna que você encontrar vira sugestão de issue no repositório do wiki (`{{repository}}`).
 
+## Devolver ao wiki
+
+Esta skill só lê, mas o que você aprender usando-a deve voltar. Ao fim de uma tarefa em que o wiki estava errado, desatualizado ou calado sobre algo que você verificou, ofereça ao usuário uma **nota de sessão**: título; contexto em duas frases; e, conforme o caso, decisões (com o porquê), erros e correções (sintoma, causa, correção), fatos verificados (com como foi verificado), correções ao wiki (página, o que afirma, o que foi observado) e perguntas em aberto. Marque cada item como `verified` ou `reported`. Sem segredos, sem dados pessoais, sem transcrição.
+
+Com o ok do usuário, entregue a nota como issue no repositório do wiki (`{{repository}}`, rótulo `wiki-capture`) ou como arquivo para ele levar. Quem mantém o wiki a grava em `raw/notes/` e a ingere.
+
 ## Formato da resposta
 
 Em plano, revisão ou descrição de PR que dependa do wiki, inclua:

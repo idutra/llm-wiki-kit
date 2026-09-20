@@ -1,10 +1,10 @@
 ---
 name: wiki
-description: Maintain an LLM Wiki (Karpathy pattern) - a git-versioned markdown knowledge base compiled by the agent from immutable sources in raw/. Single entry point for every write operation - init or adopt a wiki, research a question or thesis on the web (parallel read-only agents, human-approved sources, capture to raw/), ingest a source, archive an answer, lint, rebuild index.md / manifest.md / log.md, set up search, export decks and reports, publish the wiki as a read-only skill for other repositories, change the schema. Use when the user says "init wiki", "criar wiki", "research", "pesquise sobre", "busque fontes", "verifique esta tese", "ingest", "ingerir", "adicionar ao wiki", "arquivar esta resposta", "lint wiki", "regenerar indice", "gerar o manifesto", "a fonte mudou", "exportar", "publicar o wiki", "alterar o schema", or drops a file into raw/. For read-only questions prefer the lighter wiki-query skill.
+description: Maintain an LLM Wiki (Karpathy pattern) - a git-versioned markdown knowledge base compiled by the agent from immutable sources in raw/. Single entry point for every write operation - init or adopt a wiki, research a question or thesis on the web (parallel read-only agents, human-approved sources), ingest a source, capture session lessons as an immutable note, archive an answer, lint, rebuild index.md / manifest.md / log.md, set up search, export decks and reports, publish the wiki as a read-only skill for other repositories, change the schema. Use when the user says "init wiki", "criar wiki", "research", "pesquise sobre", "busque fontes", "verifique esta tese", "ingest", "ingerir", "capture", "registre o que aprendemos", "licoes desta sessao", "adicionar ao wiki", "arquivar esta resposta", "lint wiki", "gerar o manifesto", "a fonte mudou", "exportar", "publicar o wiki", "alterar o schema", or drops a file into raw/. For read-only questions prefer the lighter wiki-query skill.
 license: MIT
 metadata:
   author: idutra
-  version: "0.3.0"
+  version: "0.4.0"
   package: llm-wiki-kit
 ---
 
@@ -21,6 +21,7 @@ Para apenas responder perguntas a partir do wiki, use a skill `wiki-query`, que 
 | `init` | Criar ou adotar um wiki no repositório; não existe `wiki/` nem `.llm-wiki/config.yml` | `references/init.md` |
 | `research` | Pergunta ou tese sem fonte no wiki: buscar na web por ângulos, aprovar a lista, capturar e ingerir | `references/research.md` |
 | `ingest` | Fonte nova: arquivo em `raw/`, texto colado ou URL aprovada | `references/ingest.md` |
+| `capture` | Fim de sessão com decisão, erro corrigido ou fato verificado: gerar nota de sessão, revisar, escanear e gravar em `raw/notes/` | `references/capture.md` |
 | `archive` | Guardar no wiki uma resposta boa, ou registrar uma pergunta que o wiki não responde | `references/archive.md` |
 | `lint` | Saúde do wiki: checagem mecânica e de julgamento; depois de vários ingests | `references/lint.md` |
 | `index` | Reconstruir `index.md`, regenerar `manifest.md`, ler ou registrar `log.md`; aviso `source-changed` | `references/index.md` |
@@ -48,6 +49,8 @@ python .llm-wiki/scripts/wiki_tools.py check
 python .llm-wiki/scripts/wiki_tools.py log-tail -n 5
 ```
 
+Wiki criado por versão anterior do kit: compare `python .llm-wiki/scripts/wiki_tools.py --version` com `metadata.version` desta skill. Se a do repositório for menor (ou o comando falhar), a cópia local está defasada e pode não conhecer a operação pedida: ofereça a atualização descrita em `references/init.md`, seção "Atualizar um wiki existente", antes de continuar.
+
 Sem `wiki/` ou sem `.llm-wiki/config.yml`: ofereça `init`; não crie a estrutura por conta própria. Com aviso `source-changed`: pare e trate-o primeiro (`references/index.md`), porque uma fonte já compilada mudou.
 
 ## Helper determinístico
@@ -61,6 +64,7 @@ Sem `wiki/` ou sem `.llm-wiki/config.yml`: ofereça `init`; não crie a estrutur
 | `manifest [--write]` | Regera `wiki/manifest.md`: toda fonte, a página que a compilou e o hash |
 | `log-tail [-n N]` / `log-append --op <op> --title T ...` | Lê e registra o log no formato canônico |
 | `seen <url>...` | Diz quais URLs já foram capturadas (compara URLs normalizadas) |
+| `scan <arquivo>|-` | Procura segredos e dados pessoais antes de uma nota ir para `raw/`; código 1 se achar |
 | `publish [--out DIR] [--install REPO]` | Monta o wiki como skill somente leitura |
 
 Os assets que o `init` copia ficam em `assets/`, na raiz desta skill.

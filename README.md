@@ -2,7 +2,7 @@
 
 Skills e subagentes que transformam o agente de código que você já usa (Claude Code, Cursor, Codex, GitHub Copilot) em um mantenedor disciplinado de um **LLM Wiki** no padrão de Andrej Karpathy, com governança corporativa.
 
-> Status: **POC / rascunho**. Nome do pacote: `llm-wiki-kit` (versão `0.3.0`). Proposta e especificação de implementação em [`docs/solution-draft.md`](docs/solution-draft.md).
+> Status: **POC / rascunho**. Nome do pacote: `llm-wiki-kit` (versão `0.4.0`). Proposta e especificação de implementação em [`docs/solution-draft.md`](docs/solution-draft.md).
 
 ## O que é o padrão LLM Wiki
 
@@ -69,7 +69,7 @@ llm-wiki-kit/
 ├── skills/                       # Duas skills no padrão Agent Skills
 │   ├── wiki/                     # Mantenedor: ponto de entrada único, roteia para uma referência por operação
 │   │   ├── SKILL.md
-│   │   ├── references/           #   init, research, ingest, archive, lint, index, search, export, publish, conventions
+│   │   ├── references/           #   init, research, ingest, capture, archive, lint, index, search, export, publish, conventions
 │   │   └── assets/               # Copiado para o repositório-alvo pelo init
 │   │       ├── AGENTS.md         #   -> AGENTS.md (schema do wiki)
 │   │       ├── CLAUDE.md         #   -> CLAUDE.md (só "@AGENTS.md")
@@ -103,6 +103,7 @@ Operações da skill `wiki` (`/wiki <operação>` no Claude Code e no Cursor, `$
 | `init` | Cria ou adota um wiki: `raw/`, `wiki/`, `.llm-wiki/`, schema em `AGENTS.md` + `CLAUDE.md`. Idempotente. | `references/init.md` |
 | `research` | De uma pergunta ou tese a fontes compiladas: ângulos de busca em paralelo, lista aprovada por humano, captura em `raw/` com proveniência, ingestão e síntese. | `references/research.md` |
 | `ingest` | Uma fonte por vez: captura imutável, leitura completa, triagem, página `sources/`, propagação, índice, manifesto e log. | `references/ingest.md` |
+| `capture` | Lições de uma sessão de trabalho (decisões, erros e correções, fatos verificados, correções ao wiki) viram nota imutável em `raw/notes/`, depois de revisão humana e do `scan` de segredos. | `references/capture.md` |
 | `archive` | Guarda no wiki uma resposta boa do `wiki-query`; registra perguntas abertas. | `references/archive.md` |
 | `lint` | Checagem mecânica (`check`) e de julgamento (contradições, obsolescência, lacunas). Corrige só o que é seguro. | `references/lint.md` |
 | `index` | Reconstrói `index.md`, regenera `manifest.md` (todas as fontes, página e hash), lê e registra `log.md`. | `references/index.md` |
@@ -123,6 +124,16 @@ Operações da skill `wiki` (`/wiki <operação>` no Claude Code e no Cursor, `$
 4. As aprovadas entram em `raw/research/` com texto completo e cabeçalho de proveniência; são ingeridas uma a uma; a resposta vira uma síntese versionada, com divergências marcadas como `Disputed`.
 
 No modo tese ("verifique esta tese: ..."), cada ângulo busca evidência a favor e contra, e a síntese fecha com um veredito. Só o texto das buscas sai do repositório.
+
+### Capturar: como o wiki aprende com o uso
+
+```
+/wiki capture
+```
+
+Ao fim de uma sessão com decisão tomada, erro corrigido ou fato verificado, o agente **oferece** uma nota de sessão (nunca captura sozinho). O humano revisa o texto; `wiki_tools.py scan` procura segredos e dados pessoais **antes** de a nota ir para `raw/`, que é imutável e versionado; a nota entra no wiki pelo `ingest`. Cada item carrega `verified` ou `reported`, e uma nota contesta uma fonte primária (`Disputed`) em vez de sobrescrevê-la. A skill publicada tem a seção "Devolver ao wiki", então o que se aprende nos repositórios consumidores volta como issue `wiki-capture`.
+
+Com `research`, `capture` e `publish`, o ciclo fecha: o wiki busca fontes, aprende com o trabalho e entrega o que sabe onde o trabalho acontece.
 
 ### Publicar: como o wiki entra no dia a dia
 

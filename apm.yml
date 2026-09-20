@@ -15,7 +15,7 @@
 #   apm pack                                                 # gera marketplace.json a partir do bloco abaixo
 
 name: llm-wiki-kit
-version: 0.3.0
+version: 0.4.0
 description: LLM Wiki (Karpathy) as agent skills and subagents with corporate governance
 author: Igor Dutra
 license: MIT
