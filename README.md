@@ -2,7 +2,11 @@
 
 Skills e subagentes que transformam o agente de código que você já usa (Claude Code, Cursor, Codex, GitHub Copilot) em um mantenedor disciplinado de um **LLM Wiki** no padrão de Andrej Karpathy, com governança corporativa.
 
-> Status: **POC / rascunho**. Nome do pacote: `llm-wiki-kit` (versão `0.6.0`). Documentação:
+> Status: **1.0.0, desenvolvimento encerrado**. O kit está completo e testado (59 testes), e nunca
+> operou o acervo real de um time. O que foi medido, o que não foi e o que ficou no backlog está em
+> [`docs/estado-e-backlog.md`](docs/estado-e-backlog.md) — leia antes de adotar ou de retomar.
+>
+> Documentação:
 
 | Documento | Para quê |
 |---|---|
@@ -10,6 +14,7 @@ Skills e subagentes que transformam o agente de código que você já usa (Claud
 | [`docs/uso-em-uma-semana.md`](docs/uso-em-uma-semana.md) | Uma semana de uso, do repositório vazio até o conhecimento chegar ao serviço |
 | [`examples/team-wiki/`](examples/team-wiki) | O wiki de exemplo completo e válido que os dois documentos descrevem |
 | [`docs/convencao-de-branches.md`](docs/convencao-de-branches.md) | `release`, `hotfix`, `feature`, `bugfix` e como fechar uma versão |
+| [`docs/estado-e-backlog.md`](docs/estado-e-backlog.md) | O que foi medido, o que não foi validado e o que ficou de fora |
 | [`docs/solution-draft.md`](docs/solution-draft.md) | Proposta e especificação de implementação |
 
 ## O que é o padrão LLM Wiki
