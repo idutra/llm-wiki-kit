@@ -1,6 +1,6 @@
 {
   "name": "llm-wiki-kit",
-  "version": "0.6.0",
+  "version": "1.0.0",
   "description": "Two skills and five read-only subagents that turn a coding agent (Claude Code, Cursor, Codex, Copilot, OpenCode) into a disciplined LLM Wiki maintainer following Karpathy's pattern: wiki (init, research, ingest, capture, archive, lint, index/manifest/log, search, export, publish as a read-only skill, schema) and the lightweight read-only wiki-query.",
   "author": {
     "name": "Igor Dutra",

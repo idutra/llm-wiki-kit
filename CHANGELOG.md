@@ -3,6 +3,23 @@
 Formato: uma seção por versão fechada, da mais recente para a mais antiga. Versões seguem o semver do
 pacote; o fechamento de cada uma está descrito em [`docs/convencao-de-branches.md`](docs/convencao-de-branches.md).
 
+## 1.0.0 - 2026-09-20
+
+Fecha o desenvolvimento do kit. Nenhuma funcionalidade nova: consolida o que existe e registra o estado.
+
+- `docs/estado-e-backlog.md`: o que foi medido (A/B de uma instância, testes ao vivo de `research`,
+  `capture` e `publish`), o que **não** foi validado (uso real num acervo de time, fluxo completo de
+  pesquisa, concorrência entre branches, escala acima de 20 páginas, quatro dos cinco agentes,
+  instalação em máquina limpa) e o backlog com o motivo de cada corte.
+- README declara o estado e aponta para esse documento.
+
+O kit entrega: 2 skills (`wiki`, `wiki-query`), 11 referências carregadas sob demanda, 5 subagentes
+somente leitura, `wiki_tools.py` com 8 subcomandos e sem dependências, empacotamento para APM,
+`npx skills` e marketplace do Claude Code, um wiki de exemplo válido e 59 testes.
+
+Retomar o projeto começa por adotar o padrão num repositório de documentação real, não por escrever mais
+código; o roteiro está no fim do documento de estado.
+
 ## 0.6.0 - 2026-09-20
 
 - `lint`: cada verificação tem severidade `error`, `warning` ou `info`, ajustável por wiki em
