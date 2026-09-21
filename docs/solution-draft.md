@@ -666,6 +666,9 @@ Todo conteúdo de `raw/` e de páginas é dado não confiável (regra 6 do `AGEN
 
 ## 10. Roadmap do POC
 
+As fases 0 a 5 foram concluídas com o fechamento do kit na `1.0.0`. A fase 6 está descrita em 10.1 e
+não foi iniciada.
+
 | Fase | Entregas | Critérios de aceite |
 |---|---|---|
 | **0. Pacote instalável** (concluída, exceto repo remoto) | `skills/`, `agents/`, `.claude-plugin/`, `apm.yml`, `hooks/`, este documento. | `claude plugin validate . --strict` passa; `apm install ./ --dry-run --target claude,cursor,codex,copilot` lista todas as 8 skills e 4 agentes sem erro; `wiki_tools.py check` retorna 0 sobre os assets. |
@@ -675,7 +678,101 @@ Todo conteúdo de `raw/` e de páginas é dado não confiável (regra 6 do `AGEN
 | **4. Governança** | `approval_mode: all` no piloto; branch protection; CODEOWNERS; `wiki-curator` como revisor de PR; CI rodando `wiki_tools.py check`. | 5 PRs de `wiki/**` revisados com `wiki-curator`; nenhum diff em `raw/**` aceito; 100% das entradas do log com `approved_by` preenchido. |
 | **5. Avaliação e decisão** | Relatório de 2 páginas: custo por ingest (tokens/tempo), qualidade (fidelidade, contradições), adoção, degradações por agente; recomendação go/no-go para `1.0.0`. | Mantenedor e stakeholders decidem: expandir para outros times, ajustar schema (release `0.2.0`) ou encerrar. |
 
+| **6. Adoção num repositório de documentação real** (não iniciada) | Um produto escolhido; `{produto}-docs` com `init` apontando `paths.raw` para a pasta de documentos que já existe; `manifest.md` cobrindo o acervo inteiro; skill publicada em `{produto}-service` e `{produto}-hub-specs`; conjunto de 10 perguntas reais com gabarito escrito pelo time dono do conteúdo; duas medições (antes e depois da curadoria); fronteira spec/wiki decidida e escrita. | Porta A (sem nenhuma página compilada): nas 10 perguntas, o agente cita documento existente e correto em pelo menos 7, e declara lacuna em vez de inventar em 100% das que o acervo não cobre — contra o mesmo agente sem a skill. Porta B (5 a 10 páginas compiladas): mesmas perguntas, mais 5 novas, sem regressão na Porta A. Nenhum diff em `docs/**` gerado pelo agente. |
+
 Fora do POC (backlog): `qmd` para wikis grandes, índices por categoria, migração de Notion/Confluence/MediaWiki como ingestão em lote, hooks para Cursor/Codex/Copilot, registry APM privado.
+
+
+### 10.1 Fase 6 em detalhe
+
+As fases 0 a 5 foram concluídas e o kit foi fechado na `1.0.0`; o que foi medido e o que não foi está em
+[`estado-e-backlog.md`](estado-e-backlog.md). A fase 6 é a única em aberto, e ela não constrói kit: ela
+responde se o padrão se paga num acervo de verdade. Está escrita aqui para ser executada noutro dia.
+
+**Topologia alvo.** Cada produto tem três repositórios: `{produto}-docs` (documentação, que vira o wiki),
+`{produto}-service` (código) e `{produto}-hub-specs` (specs para LLM, com BMAD). Os dois últimos são
+consumidores. Isso é exatamente a topologia que o kit assume, e nenhuma funcionalidade nova é necessária.
+
+**Escolha do produto.** Um só, e o de documentação mais organizada. Um acervo bagunçado mede a bagunça,
+não o padrão.
+
+#### Passo 1 - Adotar sem mover nada
+
+```yaml
+paths:
+  raw: docs        # a pasta que ja esta la, com os caminhos que ja existem
+  wiki: wiki       # criada agora, ao lado
+```
+
+O repositório ganha `wiki/`, `.llm-wiki/` e a seção do schema no `AGENTS.md`. Não perde nada: os
+documentos ficam onde estão, legíveis por humanos e por qualquer site gerado a partir deles. Em seguida,
+`manifest --write`: o catálogo inteiro fica visível no primeiro dia, com a marca "não ingerida" no que
+ainda não virou página.
+
+#### Passo 2 - Publicar antes de compilar
+
+`publish` para `{produto}-service` e `{produto}-hub-specs`, com `publish.description` citando os assuntos
+concretos daquele produto. Nenhuma página compilada ainda: nesta etapa o valor testado é o do **catálogo**,
+não o da curadoria.
+
+#### Passo 3 - O conjunto de medição
+
+Dez perguntas de trabalho real, colhidas do que o time efetivamente pergunta (canal de dúvidas, revisões
+de PR, onboarding). Duas exigências:
+
+- **O gabarito é escrito por quem é dono do conteúdo**, não por quem monta o wiki. O A/B anterior errou
+  nisso e o resultado ficou enviesado a favor do wiki.
+- **Pelo menos duas perguntas devem cair fora do acervo.** Sem elas não se mede a única coisa que o wiki
+  promete e a busca não dá: declarar a lacuna em vez de inventar.
+
+Cada pergunta roda duas vezes, no mesmo modelo: com a skill instalada e sem ela. Registre, por resposta:
+
+| Medida | O que conta |
+|---|---|
+| Afirmação correta | Confere com o gabarito |
+| Citação | Aponta documento e seção que existem e sustentam a afirmação |
+| Lacuna declarada | Diz que o acervo não cobre, quando não cobre |
+| Invenção | Afirma como norma o que nenhum documento diz. **Qualquer ocorrência reprova a porta** |
+| Tokens e tempo | Para registro. A expectativa é não melhorar: o ganho medido antes esteve em lacuna e citação, não em custo |
+
+#### Passo 4 - Porta A, e o critério de parada
+
+Com o resultado do passo 3: pelo menos 7 das 10 com citação correta, e 100% das perguntas fora do acervo
+com lacuna declarada, contra o braço sem skill.
+
+**Se a Porta A não mostrar diferença, pare.** O problema não é o kit, e compilar páginas não resolve. O
+resultado honesto dessa fase pode ser "não adotar", e ele é barato: até aqui ninguém escreveu conteúdo
+nenhum.
+
+#### Passo 5 - Curadoria mínima e Porta B
+
+Só depois da Porta A: compilar 5 a 10 páginas dos assuntos mais perguntados — os que apareceram no passo 3,
+não os primeiros da ordem alfabética. `approval_mode: plan`, `check --fail-on error` no CI do `docs`.
+
+Repetir a medição com as mesmas 10 perguntas mais 5 novas. A Porta B não pede salto: pede **nenhuma
+regressão** na Porta A e ganho onde a curadoria atua — pergunta que atravessa vários documentos, e
+contradição entre eles.
+
+#### Passo 6 - Fronteira entre spec e wiki
+
+Decisão a tomar e escrever no `AGENTS.md` do `docs`, porque com BMAD uma spec de arquitetura se parece com
+conhecimento:
+
+| | `{produto}-hub-specs` | `{produto}-docs` (wiki) |
+|---|---|---|
+| O que é | Intenção: o que vamos construir | Conhecimento: o que o produto é e por quê |
+| Vida | Expira quando entrega | Acumula |
+| Depois de entregue | Vira histórico | Continua sendo a verdade |
+
+E o elo: **spec entregue é fonte**. Ao fechar a demanda, a spec vai para `docs/specs/` e é ingerida; as
+decisões que ficaram de pé viram páginas, o resto morre com a spec. Sem essa regra, o agente acha a decisão
+numa spec antiga e a trata como vigente.
+
+#### Entregável final da fase
+
+Relatório de duas páginas com as duas medições lado a lado, o gabarito usado, as invenções encontradas (se
+houver) e uma recomendação: expandir para os outros dois produtos, ajustar e repetir, ou não adotar. Se
+houver defeito no kit, ele entra como `hotfix/1.0.x` a partir da tag `v1.0.0`.
 
 ---
 

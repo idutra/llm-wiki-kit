@@ -90,7 +90,9 @@ Esta é a parte que importa mais.
 
 ## Se for retomar
 
-O próximo passo **não é código**. É adotar o padrão em um repositório de documentação real:
+O próximo passo **não é código**. É adotar o padrão em um repositório de documentação real. A fase está
+especificada em [`solution-draft.md`, seção 10.1](solution-draft.md#101-fase-6-em-detalhe), com as duas
+portas de aceite e o critério de parada. Em resumo:
 
 1. `init` com `paths.raw` apontando para a pasta de documentos que já existe, sem mover nada.
 2. `manifest --write`: o catálogo inteiro fica visível no primeiro dia, mesmo sem nenhuma página compilada.
