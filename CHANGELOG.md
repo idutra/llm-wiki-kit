@@ -3,6 +3,15 @@
 Formato: uma seção por versão fechada, da mais recente para a mais antiga. Versões seguem o semver do
 pacote; o fechamento de cada uma está descrito em [`docs/convencao-de-branches.md`](docs/convencao-de-branches.md).
 
+## 1.0.1 - 2026-09-20
+
+Só documentação; nenhuma mudança de comportamento.
+
+- `solution-draft.md` seção 10.1: a fase 6 (adoção num repositório de documentação real) fica
+  especificada, com o protocolo de medição, as duas portas de aceite, o critério de parada explícito e a
+  fronteira entre spec e wiki. Não iniciada.
+- As fases 0 a 5 do roadmap ficam marcadas como concluídas com o fechamento na `1.0.0`.
+
 ## 1.0.0 - 2026-09-20
 
 Fecha o desenvolvimento do kit. Nenhuma funcionalidade nova: consolida o que existe e registra o estado.

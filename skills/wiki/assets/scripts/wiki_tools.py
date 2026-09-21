@@ -47,7 +47,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-KIT_VERSION = "1.0.0"  # version of llm-wiki-kit this copy came from; see `--version`
+KIT_VERSION = "1.0.1"  # version of llm-wiki-kit this copy came from; see `--version`
 CONFIG_REL = ".llm-wiki/config.yml"
 # Built-in page vocabulary; .llm-wiki/config.yml overrides it (see Schema).
 # (wiki/ subdirectory, page type, heading label used in index.md)

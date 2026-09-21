@@ -2,7 +2,7 @@
 
 Skills e subagentes que transformam o agente de código que você já usa (Claude Code, Cursor, Codex, GitHub Copilot) em um mantenedor disciplinado de um **LLM Wiki** no padrão de Andrej Karpathy, com governança corporativa.
 
-> Status: **1.0.0, desenvolvimento encerrado**. O kit está completo e testado (59 testes), e nunca
+> Status: **1.0.1, desenvolvimento encerrado**. O kit está completo e testado (59 testes), e nunca
 > operou o acervo real de um time. O que foi medido, o que não foi e o que ficou no backlog está em
 > [`docs/estado-e-backlog.md`](docs/estado-e-backlog.md) — leia antes de adotar ou de retomar.
 >
