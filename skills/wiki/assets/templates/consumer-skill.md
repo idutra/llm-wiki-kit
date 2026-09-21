@@ -9,23 +9,23 @@ Esta skill entrega, em modo somente leitura, um wiki compilado por um agente man
 
 Duas ideias sustentam o resto:
 
-- **A fonte decide, o wiki relata.** As páginas em `references/wiki/` organizam, relacionam e resumem. A evidência é o documento em `references/raw/`. Um resumo pode perder uma exceção, então o que importa de verdade se confere na fonte.
+- **A fonte decide, o wiki relata.** As páginas em `references/{{wiki_dir}}/` organizam, relacionam e resumem. A evidência é o documento em `references/{{raw_dir}}/`. Um resumo pode perder uma exceção, então o que importa de verdade se confere na fonte.
 - **Lacuna se declara, não se preenche.** Quando o wiki não cobre o caso, quem lê a sua resposta precisa saber disso. Uma afirmação inventada com cara de citação se espalha.
 
 ## Como navegar
 
-1. Leia `references/wiki/index.md`. É curto: lista todas as páginas com uma linha de resumo.
-2. Leia `references/wiki/manifest.md`, se existir. Ele lista **todas as fontes**, inclusive as que ainda não viraram página. O índice mostra o que o wiki já sabe; o manifesto mostra o que existe para saber. Uma tarefa quase sempre esbarra em assunto fora da página principal.
+1. Leia `references/{{wiki_dir}}/index.md`. É curto: lista todas as páginas com uma linha de resumo.
+2. Leia `references/{{wiki_dir}}/manifest.md`, se existir. Ele lista **todas as fontes**, inclusive as que ainda não viraram página. O índice mostra o que o wiki já sabe; o manifesto mostra o que existe para saber. Uma tarefa quase sempre esbarra em assunto fora da página principal.
 3. Leia por inteiro as páginas que cobrem a tarefa e siga os links `related` que a tocam.
-4. Antes de aplicar um valor literal (número, data, nome de propriedade, comando, citação), abra a fonte citada em `references/raw/` e confira. Valores saem da fonte, não do resumo.
+4. Antes de aplicar um valor literal (número, data, nome de propriedade, comando, citação), abra a fonte citada em `references/{{raw_dir}}/` e confira. Valores saem da fonte, não do resumo.
 5. Leia os blocos `Status: Disputed` e `Status: Outdated` e as páginas de perguntas abertas: é onde o wiki diz o que ainda não está resolvido.
 6. Sem candidatos no índice nem no manifesto, busque texto completo (`rg -il "<termo>|<sinônimo>" references/`). Só então diga que o wiki não cobre o assunto, e diga que buscou.
 
 ### Fonte sem página
 
-O manifesto marca como "não ingerida" a fonte que ainda não tem página. Ela vale como as outras; só não passou por curadoria. Abra o arquivo em `references/raw/`, leia por inteiro e cite documento e seção. Diga na resposta que veio direto da fonte.
+O manifesto marca como "não ingerida" a fonte que ainda não tem página. Ela vale como as outras; só não passou por curadoria. Abra o arquivo em `references/{{raw_dir}}/`, leia por inteiro e cite documento e seção. Diga na resposta que veio direto da fonte.
 
-Se `references/raw/` não existir, as fontes não foram publicadas com esta versão: as páginas são a única evidência disponível, e valores literais ficam marcados como "não conferido na fonte".
+Se `references/{{raw_dir}}/` não existir, as fontes não foram publicadas com esta versão: as páginas são a única evidência disponível, e valores literais ficam marcados como "não conferido na fonte".
 
 ## Como aplicar
 

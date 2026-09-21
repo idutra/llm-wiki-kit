@@ -7,6 +7,7 @@ Run from the repository root:
 from __future__ import annotations
 
 import contextlib
+import datetime as dt
 import importlib.util
 import io
 import json
@@ -349,6 +350,37 @@ class Publish(WikiCase):
         self.assertEqual(code, 0, err)
         self.assertIn("# Minha", (self.root / "dist/acme-wiki/SKILL.md").read_text(encoding="utf-8"))
 
+    def test_it_keeps_the_configured_directory_names(self):
+        """A docs repo that adopts a wiki keeps its `docs/` folder; the links must still resolve."""
+        template = (ASSETS / "templates" / "consumer-skill.md").read_text(encoding="utf-8")
+        source_page = (page("ADR 1", "source", extra="sources: [docs/adr/adr-001.md]\n")
+                       + "\nVer [a fonte](../../docs/adr/adr-001.md).\n")
+        self.build({
+            "docs/adr/adr-001.md": "# ADR 1\n",
+            "wiki/index.md": "# Índice do wiki\n\n- [ADR 1](sources/adr-001.md) - resumo\n",
+            "wiki/sources/adr-001.md": source_page,
+            ".llm-wiki/templates/consumer-skill.md": template,
+        }, config="paths:\n  raw: docs\n" + self.CONFIG)
+        code, _, err = self.publish()
+        self.assertEqual(code, 0, err)
+        skill = self.root / "dist/acme-wiki"
+        self.assertTrue((skill / "references/docs/adr/adr-001.md").is_file())
+        self.assertFalse((skill / "references/raw").exists())
+        text = (skill / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("references/docs/", text)
+        self.assertNotIn("references/raw/", text)
+
+    def test_a_hand_written_skill_naming_the_wrong_directory_is_refused(self):
+        self.build({
+            "docs/adr/adr-001.md": "# ADR 1\n",
+            "wiki/index.md": "# Índice do wiki\n",
+            ".llm-wiki/publish/SKILL.md": ("---\nname: acme-wiki\ndescription: x\n---\n\n"
+                                           "Leia `references/raw/` por completo.\n"),
+        }, config="paths:\n  raw: docs\n" + self.CONFIG)
+        code, _, err = self.publish()
+        self.assertEqual(code, 1)
+        self.assertIn("says 'references/raw/' but this wiki publishes to 'references/docs/'", err)
+
     def test_install_copies_to_both_discovery_directories(self):
         self.build_publishable()
         with tempfile.TemporaryDirectory() as consumer:
@@ -425,6 +457,158 @@ class Scan(WikiCase):
         code, _ = self.run_tool("log-append", "--op", "capture", "--title", "Nota")
         self.assertEqual(code, 0)
         self.assertEqual(self.messages("log"), [])
+
+
+class NestedYaml(unittest.TestCase):
+    """The config needs three levels (lint.freshness.high); the frontmatter needs two."""
+
+    def parse(self, text):
+        return wiki_tools.parse_yaml(text.splitlines())
+
+    def test_mappings_nest_as_deep_as_the_config_needs(self):
+        got = self.parse(
+            "lint:\n"
+            "  fail_on: warning\n"
+            "  freshness:\n"
+            "    high: 30\n"
+            "    static: 0\n"
+            "  default_volatility: low\n"
+            "paths:\n"
+            "  wiki: kb\n")
+        self.assertEqual(got["lint"]["freshness"], {"high": "30", "static": "0"})
+        self.assertEqual(got["lint"]["fail_on"], "warning")
+        self.assertEqual(got["lint"]["default_volatility"], "low")  # back out to the parent level
+        self.assertEqual(got["paths"], {"wiki": "kb"})
+
+    def test_block_and_inline_lists_survive_nesting(self):
+        got = self.parse(
+            "statuses:\n"
+            "  - draft\n"
+            "  - reviewed\n"
+            "research:\n"
+            "  angles: [technical, contrarian]\n"
+            "  block_domains:\n"
+            "    - exemplo.com\n"
+            "  max_rounds: 2\n")
+        self.assertEqual(got["statuses"], ["draft", "reviewed"])
+        self.assertEqual(got["research"]["angles"], ["technical", "contrarian"])
+        self.assertEqual(got["research"]["block_domains"], ["exemplo.com"])
+        self.assertEqual(got["research"]["max_rounds"], "2")
+
+    def test_the_shipped_config_parses_into_the_blocks_the_script_reads(self):
+        cfg = self.parse((ASSETS / "config.yml").read_text(encoding="utf-8"))
+        for key in ("paths", "categories", "lint", "publish", "research", "capture", "search", "export"):
+            self.assertIsInstance(cfg.get(key), dict, key)
+        self.assertIsInstance(cfg["lint"]["freshness"], dict)
+        self.assertIsInstance(cfg["statuses"], list)
+
+
+class Severity(WikiCase):
+    STALE = "created: 2020-01-01\nupdated: 2020-01-01\n"
+
+    def build_with_orphan(self, config=None):
+        page = ("---\ntitle: Solta\ntype: concept\nstatus: draft\n"
+                "created: 2026-01-01\nupdated: 2026-01-01\n---\n\n# Solta\n")
+        self.build({
+            "wiki/concepts/solta.md": page,
+            "wiki/index.md": "# Índice do wiki\n\n- [Solta](concepts/solta.md) - resumo\n",
+        }, config=config)
+
+    def orphans(self, level: str):
+        return [f for f in self.check()[level] if f["kind"] == "orphan"]
+
+    def test_a_wiki_can_lower_a_check_to_info(self):
+        self.build_with_orphan()
+        self.assertEqual(len(self.orphans("warnings")), 1)
+        self.build_with_orphan(config="lint:\n  severity:\n    orphan: info\n")
+        self.assertEqual(self.orphans("warnings"), [])
+        self.assertEqual(len(self.orphans("infos")), 1)
+
+    def test_off_silences_a_check_entirely(self):
+        self.build_with_orphan(config="lint:\n  severity:\n    orphan: off\n")
+        self.assertEqual(self.orphans("findings"), [])
+
+    def test_a_wiki_can_raise_a_check_to_error(self):
+        self.build_with_orphan(config="lint:\n  severity:\n    orphan: error\n")
+        code, _ = self.run_tool("check")
+        self.assertEqual(code, 1)
+
+    def test_an_unknown_check_or_level_is_reported_and_ignored(self):
+        self.build_with_orphan(config="lint:\n  severity:\n    orfa: info\n    orphan: critical\n")
+        problems = " | ".join(self.messages("config", "warnings"))
+        self.assertIn("'lint.severity.orfa': unknown check", problems)
+        self.assertIn("'lint.severity.orphan': must be one of", problems)
+        self.assertEqual([f["kind"] for f in self.check()["warnings"] if f["kind"] == "orphan"], ["orphan"])
+
+
+class FailOn(WikiCase):
+    def build_with_warning(self, config=None):
+        self.build({
+            "wiki/concepts/solta.md": page("Solta", "concept"),
+            "wiki/index.md": "# Índice do wiki\n\n- [Solta](concepts/solta.md) - resumo\n",
+        }, config=config)
+
+    def test_default_fails_on_error_only(self):
+        self.build_with_warning()
+        self.assertTrue([f for f in self.check()["warnings"] if f["kind"] == "orphan"])
+        self.assertEqual(self.run_tool("check")[0], 0)  # a warning alone does not fail
+
+    def test_the_flag_overrides_the_config(self):
+        self.build_with_warning(config="lint:\n  fail_on: warning\n")
+        self.assertEqual(self.run_tool("check")[0], 1)
+        self.assertEqual(self.run_tool("check", "--fail-on", "error")[0], 0)
+        self.assertEqual(self.run_tool("check", "--fail-on", "never")[0], 0)
+
+    def test_never_tolerates_even_errors(self):
+        self.build({"wiki/sources/sem-fonte.md": page("Sem fonte", "source")})
+        self.assertEqual(self.run_tool("check")[0], 1)
+        self.assertEqual(self.run_tool("check", "--fail-on", "never")[0], 0)
+
+    def test_an_invalid_fail_on_in_config_is_reported_and_falls_back(self):
+        self.build_with_warning(config="lint:\n  fail_on: sempre\n")
+        self.assertIn("'lint.fail_on': must be one of", " ".join(self.messages("config", "warnings")))
+        self.assertEqual(self.run_tool("check")[0], 0)
+
+
+class Freshness(WikiCase):
+    def aged(self, days: int, volatility: str = "") -> str:
+        old = (dt.date.today() - dt.timedelta(days=days)).isoformat()
+        extra = f"volatility: {volatility}\n" if volatility else ""
+        return (f"---\ntitle: Página\ntype: concept\nstatus: draft\n"
+                f"created: {old}\nupdated: {old}\n{extra}---\n\n# Página\n")
+
+    def build_aged(self, days: int, volatility: str = "", config=None):
+        self.build({
+            "wiki/concepts/p.md": self.aged(days, volatility),
+            "wiki/index.md": "# Índice do wiki\n\n- [Página](concepts/p.md) - resumo\n",
+        }, config=config)
+        return [f for f in self.check()["findings"] if f["kind"] == "freshness"]
+
+    def test_a_page_within_its_band_is_not_flagged(self):
+        self.assertEqual(self.build_aged(100), [])          # default medium = 180 days
+
+    def test_a_page_past_its_band_is_flagged_as_info(self):
+        found = self.build_aged(400)
+        self.assertEqual(len(found), 1)
+        self.assertEqual(found[0]["level"], "info")
+        self.assertIn("volatility 'medium' expects a review every 180", found[0]["message"])
+
+    def test_volatility_in_the_frontmatter_wins(self):
+        self.assertEqual(len(self.build_aged(100, "high")), 1)   # 30 days
+        self.assertEqual(self.build_aged(400, "static"), [])      # 0 = never stale
+
+    def test_bands_and_the_default_come_from_the_config(self):
+        cfg = "lint:\n  default_volatility: high\n  freshness:\n    high: 7\n"
+        self.assertEqual(len(self.build_aged(30, config=cfg)), 1)
+        self.assertEqual(self.build_aged(3, config=cfg), [])
+
+    def test_an_unknown_volatility_is_a_frontmatter_problem_not_a_silent_pass(self):
+        self.build({
+            "wiki/concepts/p.md": self.aged(400, "quando-der"),
+            "wiki/index.md": "# Índice do wiki\n\n- [Página](concepts/p.md) - resumo\n",
+        })
+        # frontmatter problems are errors, like an unknown type or status
+        self.assertIn("unknown volatility 'quando-der'", " ".join(self.messages("frontmatter")))
 
 
 class ExampleWiki(unittest.TestCase):

@@ -50,6 +50,22 @@ python .llm-wiki/scripts/wiki_tools.py log-append --op init --title "Wiki inicia
 
 5. Se `approval_mode` for `all`, oriente o usuário a proteger a branch principal e exigir PR para `wiki/**` (seção Governança do `AGENTS.md`).
 
+## Adotar um repositório que já tem documentação
+
+O caso comum não é um repositório vazio: é um `*-docs` com anos de markdown. Não mova nada. Aponte o wiki para a pasta que já existe:
+
+```yaml
+paths:
+  raw: docs          # a pasta que ja esta la; continua sendo lida por humanos como sempre
+  wiki: wiki         # criada agora, ao lado
+```
+
+O que muda no repositório: ganha `wiki/`, `.llm-wiki/` e a seção do schema no `AGENTS.md`. O que **não** muda: a pasta de documentos, os caminhos existentes, qualquer site gerado a partir dela.
+
+Depois do `init`, rode `manifest --write`. O manifesto lista **todo** o acervo desde o primeiro dia, com a marca "não ingerida" no que ainda não virou página. Isso importa: um agente consumidor passa a enxergar o catálogo inteiro antes de qualquer curadoria, e a compilação vira um trabalho gradual em vez de uma migração. Comece ingerindo o que mais se pergunta, não o que está primeiro na ordem alfabética.
+
+A partir daí, `docs/` é imutável como qualquer `raw/`: correção de documento continua sendo feita por quem cuida dele, e o `check` avisa com `source-changed` que a página correspondente precisa ser revista.
+
 ## Atualizar um wiki existente
 
 O `init` copia arquivos do kit para dentro do repositório do wiki; quando o kit evolui, essas cópias ficam para trás. Sintomas: `wiki_tools.py` não conhece um subcomando (`manifest`, `seen`, `scan`, `publish`), `log-append` recusa uma operação, ou o `AGENTS.md` não descreve um workflow que a skill oferece.

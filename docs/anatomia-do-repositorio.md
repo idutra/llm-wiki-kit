@@ -146,7 +146,7 @@ Nada de runtime próprio nem de painel de permissões: o controle é o do reposi
 
 - **`approval_mode: all`** em `.llm-wiki/config.yml` faz toda escrita em `wiki/` passar por PR.
 - **Branch protection** em `main` e **CODEOWNERS** em `wiki/**` definem quem revisa.
-- **CI** roda `wiki_tools.py check`; qualquer diff em `raw/**` que não seja adição merece rejeição.
+- **CI** roda `wiki_tools.py check --fail-on error` (ou `warning`, num wiki rigoroso); qualquer diff em `raw/**` que não seja adição merece rejeição.
 - O subagente `wiki-curator` revisa a proposta contra o schema antes de o humano olhar.
 - **`sensitivity`** por página, e `publish.max_sensitivity` impede que uma página `confidential` saia do
   repositório dentro de uma skill publicada.
